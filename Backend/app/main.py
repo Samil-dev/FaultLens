@@ -1,15 +1,31 @@
+# Punto de entrada de la aplicación backend (FastAPI).
+
 from fastapi import FastAPI
 
+# Routers de la API
+from app.api.health import router as health_router
+from app.api.system import router as system_router
+
+
+# Instancia principal de FastAPI.
 app = FastAPI(
-    title ="CodeTwin API",
-    description="Backend API fort CodeTwin + ChaosLab + AI",
-    version="o.1.o"
+    title="CodeTwin API",
+    description="Backend API for CodeTwin + ChaosLab + AI",
+    version="0.1.0"
 )
 
-from app.api.health import router as health_router
 
+# =========================
+# API ROUTERS
+# =========================
+
+# Health Check
 app.include_router(
     health_router,
     prefix="/api"
 )
 
+# System
+app.include_router(
+    system_router
+)

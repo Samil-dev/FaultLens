@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -32,10 +32,4 @@ class Node(BaseModel):
     description: Optional[str] = Field(
         default=None,
         description="Optional description of the node"
-    )
-
-        # IDs de los nodos de los que depende este nodo.
-    depends_on: List[str] = Field(
-        default_factory=list,
-        description="IDs of nodes this node depends on"
     )

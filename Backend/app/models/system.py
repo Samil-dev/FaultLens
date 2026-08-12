@@ -7,6 +7,8 @@ from typing import List
 #Importamos el modelo Node/
 from app.models.node import Node
 
+from app.models.dependency import Dependency
+
 
 class System(BaseModel):
 
@@ -28,22 +30,36 @@ class System(BaseModel):
         description="Nodes that compose the system"
     )
 
+    dependencies: List[Dependency] = Field(
+        default_factory=list,
+        description="Dependencies between nodes in the system"
+    )
+
     #Valida la estructura de los nodos del sistema.
     @model_validator(mode="after")
     def validate_nodes(self):
 
         #Obtenemos todos los IDs de los nodos.
-        node_ids = [node.id for node in self.nodes]
+        node_ids = {node.id for node in self.nodes}
 
         #Verificamos que no existan IDs repetidos.
-        if len(node_ids) != len(set(node_ids)):
+        if len(node_ids) != len(self.nodes):
             raise ValueError("Node Ids must be unique")
-        
-    #Verificamos que todas las dependencias existan.
-        for node in self.nodes:
-            for dependency in node.depends_on:
-                if dependency not in node_ids:
-                    raise ValueError(
-                        f"Node '{node.id}' depends on unknown node '{dependency}'" 
-                    )
+
+        #Validamos las dependencias explicitas del sistema.
+        for dependency in self.dependencies:
+
+            if dependency.source not in node_ids:
+                raise ValueError(
+                    f"Dependency source '{dependency.source}'"
+                    f"does not exist in the system"
+                )
+
+            #El nodo origen debe existir.
+            if dependency.source not in node_ids:
+                raise ValueError(
+                f"Dependecy target '{dependency.target}'"
+                f"does not exist in the system"
+                )
+
         return self
