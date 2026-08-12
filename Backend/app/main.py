@@ -5,6 +5,7 @@ from fastapi import FastAPI
 # Routers de la API
 from app.api.health import router as health_router
 from app.api.system import router as system_router
+from app.api.experiment import router as experiment_router
 
 
 # Instancia principal de FastAPI.
@@ -28,4 +29,8 @@ app.include_router(
 # System
 app.include_router(
     system_router
+)
+
+app.include_router(
+    experiment_router
 )
