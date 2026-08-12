@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from app.models.simulation_event import SimulationEvent
 from app.models.simulation_run import SimulationRun
 from app.models.metric_comparison import MetricComparison
+from app.models.resilience_score import ResilienceScore
 
 class ExperimentRunData(BaseModel):
     #Resultado de la ejecucion.
@@ -21,6 +22,11 @@ class ExperimentRunData(BaseModel):
     comparisons: list[MetricComparison] = Field(
         default_factory=list,
         description="Metric comparisons produced by the experiment"
+    )
+
+    resilience_score: ResilienceScore = Field(
+        ...,
+        description="Overall resilience score for the experiment"
     )
 
     
