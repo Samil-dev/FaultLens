@@ -9,6 +9,7 @@ from app.models.node import Node
 
 from app.models.dependency import Dependency
 
+from app.graph.graph_validator import validate_no_cycles
 
 class System(BaseModel):
 
@@ -24,7 +25,6 @@ class System(BaseModel):
         description="Human-readable system name"
     )
 
-    #Lista de nopos que componen el sistema.
     nodes: List[Node] = Field(
         default_factory=list,
         description="Nodes that compose the system"
@@ -61,5 +61,15 @@ class System(BaseModel):
                 f"Dependecy target '{dependency.target}'"
                 f"does not exist in the system"
                 )
+
+        dependency_pairs = [
+            (dependency.source, dependency.target)
+            for dependency in self.dependencies
+        ]
+
+        validate_no_cycles(
+            list(node_ids),
+            dependency_pairs
+        )
 
         return self
