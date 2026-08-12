@@ -5,6 +5,7 @@ from app.services.chaos_service import ChaosService
 
 from app.models.experiment_response import ExperimentRunData
 from app.models.experiment_api_response import ExperimentApiResponse
+from app.services.resilience_service import ResilienceService
 
 router = APIRouter(
     prefix="/api/experiments",
@@ -25,12 +26,19 @@ def run_experiment(request: ExperimentRequest):
         request.experiment
     )
 
+    resilience_score = ResilienceService().calculate_score(
+    comparisons,
+    len(run.affected_nodes),
+    len(request.system.nodes)
+)
+
     return ExperimentApiResponse(
-        succes=True,
-        data=ExperimentRunData(
-            run=run,
-            events=events,
-            comparisons=comparisons
-        ),
-        error=None
+    success=True,
+    data=ExperimentRunData(
+        run=run,
+        events=events,
+        comparisons=comparisons,
+        resilience_score=resilience_score
+    ),
+    error=None
     )

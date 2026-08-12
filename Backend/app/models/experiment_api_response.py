@@ -7,7 +7,7 @@ from app.models.api_response import ApiError
 
 class ExperimentApiResponse(BaseModel):
     #Indica si la ejecucion fue exitosa.
-    succes: bool = Field(
+    success: bool = Field(
         ...,
         description="Wether the experiment execution was successful"
     )
