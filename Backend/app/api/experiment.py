@@ -20,7 +20,7 @@ def run_experiment(request: ExperimentRequest):
     Run a chaos experiment against a provided system.
     """
 
-    run, events = ChaosService().run_experiment(
+    run, events, comparisons = ChaosService().run_experiment(
         request.system,
         request.experiment
     )
@@ -29,7 +29,8 @@ def run_experiment(request: ExperimentRequest):
         succes=True,
         data=ExperimentRunData(
             run=run,
-            events=events
+            events=events,
+            comparisons=comparisons
         ),
         error=None
     )

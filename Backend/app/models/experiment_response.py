@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 
 from app.models.simulation_event import SimulationEvent
 from app.models.simulation_run import SimulationRun
+from app.models.metric_comparison import MetricComparison
 
 class ExperimentRunData(BaseModel):
     #Resultado de la ejecucion.
@@ -14,6 +15,12 @@ class ExperimentRunData(BaseModel):
     events: list[SimulationEvent] = Field(
         default_factory=list,
         description="Events generated during the simulation"
+    )
+
+    #Impacto medido antes y despues del experimento.
+    comparisons: list[MetricComparison] = Field(
+        default_factory=list,
+        description="Metric comparisons produced by the experiment"
     )
 
     
