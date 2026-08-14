@@ -3,6 +3,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from app.models.recovery import Recovery
+
 class SimulationRun(BaseModel):
     #Identificador unico de esta ejecucion.
     id: str = Field(
@@ -52,4 +54,9 @@ class SimulationRun(BaseModel):
         description="Timestamp when the simulation run was created"
     )
 
+    #Informacion sobre la recuperacion de los nodos afectados.
+    recoveries: list[Recovery] =   Field(
+        default_factory=list,
+        description="Recovery information for affected nodes"
+    )
     
