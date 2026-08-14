@@ -5,6 +5,7 @@ from app.models.resilience_analysis import ResilienceAnalysis
 from app.models.resilience_score import ResilienceScore
 from app.models.simulation_event import SimulationEvent
 from app.models.simulation_run import SimulationRun
+from app.models.ai_analysis import AIAnalysis
 
 
 class ExperimentRunData(BaseModel):
@@ -36,4 +37,9 @@ class ExperimentRunData(BaseModel):
     analysis: ResilienceAnalysis = Field(
         ...,
         description="Complete resilience analysis"
+    )
+
+    ai_analysis: AIAnalysis = Field(
+        ...,
+        description="AI-assisted interpretation of the resilience analysis"
     )

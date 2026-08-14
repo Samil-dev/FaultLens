@@ -8,6 +8,7 @@ from app.services.resilience_analysis_service import (
     ResilienceAnalysisService,
 )
 from app.services.resilience_service import ResilienceService
+from app.services.ai_analysis_service import AIAnalysisService
 
 
 router = APIRouter(
@@ -47,6 +48,10 @@ def run_experiment(request: ExperimentRequest):
         total_nodes=len(request.system.nodes),
     )
 
+    ai_analysis = AIAnalysisService().analyze(
+    analysis
+)
+
     return ExperimentApiResponse(
         success=True,
         data=ExperimentRunData(
@@ -55,6 +60,7 @@ def run_experiment(request: ExperimentRequest):
             comparisons=comparisons,
             resilience_score=resilience_score,
             analysis=analysis,
+            ai_analysis=ai_analysis,
         ),
         error=None,
     )
