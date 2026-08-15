@@ -1,6 +1,7 @@
 import type {
   ExperimentRequest,
   ExperimentApiResponse,
+  ExperimentRunData,
   HealthResponse,
   System,
 } from '../types/api'
@@ -36,7 +37,17 @@ export function createSystem(system: System): Promise<{ success: boolean; data: 
   return post('/systems/', system)
 }
 
+/** GET /api/systems/ — retrieve locally saved Digital Twins */
+export function fetchSystems(): Promise<System[]> {
+  return get<System[]>('/systems/')
+}
+
 /** POST /api/experiments/run — execute a chaos experiment */
 export function runExperiment(request: ExperimentRequest): Promise<ExperimentApiResponse> {
   return post('/experiments/run', request)
+}
+
+/** GET /api/experiments/ — retrieve persisted experiment history */
+export function fetchExperimentHistory(systemId: string): Promise<ExperimentRunData[]> {
+  return get<ExperimentRunData[]>(`/experiments/?system_id=${encodeURIComponent(systemId)}`)
 }

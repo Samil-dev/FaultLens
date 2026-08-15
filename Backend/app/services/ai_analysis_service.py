@@ -16,12 +16,14 @@ class AIAnalysisService:
 
     def analyze(
         self,
-        resilience_analysis: ResilienceAnalysis
+        resilience_analysis: ResilienceAnalysis,
+        experiment_type: str = "service_down",
     ) -> AIAnalysis:
         """
         Generates an AI interpretation of a resilience analysis.
         """
 
         return self.analyzer.analyze(
-            resilience_analysis
+            resilience_analysis,
+            experiment_type=experiment_type,
         )

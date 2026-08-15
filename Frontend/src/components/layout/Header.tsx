@@ -39,14 +39,14 @@ export function Header() {
           <circle cx="11" cy="11" r="2.5" fill="var(--accent)" />
         </svg>
         <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: '0.04em', color: 'var(--text-primary)' }}>
-          CODE<span style={{ color: 'var(--accent)' }}>TWIN</span>
+          FAULT<span style={{ color: 'var(--accent)' }}>LENS</span>
         </span>
         <span style={{
           fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
           color: 'var(--text-muted)', borderLeft: '1px solid var(--border)',
           paddingLeft: 8, textTransform: 'uppercase'
         }}>
-          ChaosLab
+          Chaos Engineering &amp; Resilience Intelligence
         </span>
       </div>
 

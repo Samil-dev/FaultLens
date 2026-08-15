@@ -1,0 +1,5 @@
+# Development and testing dependencies — NOT for production installs.
+# Install with: pip install -r requirements-dev.txt
+pytest==8.3.5
+pytest-cov==6.1.0
+httpx==0.28.1

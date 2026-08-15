@@ -9,6 +9,7 @@ from app.services.resilience_analysis_service import (
 )
 from app.services.resilience_service import ResilienceService
 from app.services.ai_analysis_service import AIAnalysisService
+from app.services.persistence_service import PersistenceService
 
 
 router = APIRouter(
@@ -49,18 +50,28 @@ def run_experiment(request: ExperimentRequest):
     )
 
     ai_analysis = AIAnalysisService().analyze(
-    analysis
-)
+        analysis,
+        experiment_type=request.experiment.type,
+    )
+
+    result = ExperimentRunData(
+        run=run,
+        events=events,
+        comparisons=comparisons,
+        resilience_score=resilience_score,
+        analysis=analysis,
+        ai_analysis=ai_analysis,
+    )
+    PersistenceService().save_system(request.system)
+    PersistenceService().save_experiment(request.system.id, result)
 
     return ExperimentApiResponse(
         success=True,
-        data=ExperimentRunData(
-            run=run,
-            events=events,
-            comparisons=comparisons,
-            resilience_score=resilience_score,
-            analysis=analysis,
-            ai_analysis=ai_analysis,
-        ),
+        data=result,
         error=None,
     )
+
+
+@router.get("/", response_model=list[ExperimentRunData])
+def list_experiments(system_id: str | None = None):
+    return PersistenceService().list_experiments(system_id)

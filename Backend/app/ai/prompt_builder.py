@@ -8,10 +8,14 @@ class PromptBuilder:
 
     def build(
         self,
-        analysis: ResilienceAnalysis
+        analysis: ResilienceAnalysis,
+        experiment_type: str = "service_down",
     ) -> str:
         """
         Converts a resilience analysis into a structured prompt.
+
+        experiment_type is included so that AI providers can tailor their
+        response to the specific failure mode that was simulated.
         """
 
         critical_nodes = ", ".join(
@@ -29,7 +33,9 @@ class PromptBuilder:
         ) or "None"
 
         return f"""
-You are analyzing the resilience of a software system.
+You are analyzing the resilience of a software system after a chaos experiment.
+
+Experiment type: {experiment_type}
 
 Impact:
 - Blast radius: {analysis.impact.blast_radius}

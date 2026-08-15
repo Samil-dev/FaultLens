@@ -44,10 +44,14 @@ class DependencyGraph:
 
     def get_affected_nodes(self, failed_node_id: str) -> list[str]:
         """
-        Returns the nodes affected by a failed node.
+        Returns the nodes affected by a failed node, each appearing exactly once.
 
-        Uses the reverse dependency graph to find
-        which nodes depend on the failed node.
+        Uses the reverse dependency graph to find which nodes depend on the
+        failed node, traversing transitively via BFS.
+
+        Deduplication is enforced at enqueue time: a node is added to the queue
+        and to the affected list at most once, regardless of how many upstream
+        paths lead to it.
         """
 
         reverse_graph = defaultdict(list)
@@ -62,19 +66,15 @@ class DependencyGraph:
             return []
 
         affected = []
-        visited = set()
+        enqueued = {failed_node_id}   # tracks every node that has entered the queue
         queue = deque([failed_node_id])
 
         while queue:
             current = queue.popleft()
 
-            if current in visited:
-                continue
-
-            visited.add(current)
-
             for dependent in reverse_graph.get(current, []):
-                if dependent not in visited:
+                if dependent not in enqueued:
+                    enqueued.add(dependent)
                     affected.append(dependent)
                     queue.append(dependent)
 

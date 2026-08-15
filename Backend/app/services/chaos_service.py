@@ -5,6 +5,7 @@ from app.models.simulation_run import SimulationRun
 from app.models.system import System
 from app.services.metrics_service import MetricsService
 from app.models.metric_comparison import MetricComparison
+
 class ChaosService:
     """
     Orchestrates the execution of chaos experiments.
@@ -23,32 +24,36 @@ class ChaosService:
         Executes a chaos experiment and measures its simulated impact.
         """
 
-        #Create the metrics service.
+        # Create the metrics service.
         metrics_service = MetricsService()
 
-        #Capture the systeam state before the experiment.
+        # Capture the system state before the experiment.
         before_snapshot = metrics_service.create_snapshot(system)
 
-        #Execute the chaos experiment.
+        # Execute the chaos experiment.
         engine = ChaosEngine(system)
-
         run, events = engine.run(experiment)
 
-        #Build the simulated state after the experiment.
+        # Determine target node status for metrics:
+        # service_down → "failed"; all other supported types → "degraded".
+        target_status = "failed" if experiment.type == "service_down" else "degraded"
+
+        # Build the simulated state after the experiment.
         status_overrides = {
-            experiment.target_node: "failed"
+            experiment.target_node: target_status
         }
 
         for node_id in run.affected_nodes:
             status_overrides[node_id] = "degraded"
 
-        #Capture the system state after the experiment.
+        # Capture the system state after the experiment.
         after_snapshot = metrics_service.create_snapshot(
             system,
-            status_overrides
+            status_overrides,
+            experiment_type=experiment.type,
         )
 
-        #Compare Before vs After.
+        # Compare Before vs After.
         comparisons = metrics_service.compare_snapshots(
             before_snapshot,
             after_snapshot

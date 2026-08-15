@@ -28,9 +28,10 @@ class Experiment(BaseModel):
 
     # Tipo de experimento de caos.
     type: Literal[
-        "latency",
         "service_down",
-        "traffic_spike"
+        "latency_spike",
+        "resource_exhaustion",
+        "traffic_spike",
     ] = Field(
         ...,
         description="Type of chaos experiment"

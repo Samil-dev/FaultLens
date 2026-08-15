@@ -3,10 +3,11 @@ import { useStore } from '../../store/experimentStore'
 import { runExperiment } from '../../services/api'
 import type { ExperimentType } from '../../types/api'
 
-const EXPERIMENT_TYPES: { value: ExperimentType; label: string; supported: boolean }[] = [
-  { value: 'service_down',  label: 'Service Down — bring the node offline',   supported: true  },
-  { value: 'latency',       label: 'Latency Injection (planned)',              supported: false },
-  { value: 'traffic_spike', label: 'Traffic Spike (planned)',                  supported: false },
+const EXPERIMENT_TYPES: { value: ExperimentType; label: string; supported: boolean; desc: string }[] = [
+  { value: 'service_down',        label: 'Service Down',        supported: true,  desc: 'Take a node completely offline' },
+  { value: 'latency_spike',       label: 'Latency Spike',       supported: true,  desc: 'Inject high latency into a node' },
+  { value: 'resource_exhaustion', label: 'Resource Exhaustion', supported: true,  desc: 'Saturate CPU and memory resources' },
+  { value: 'traffic_spike',       label: 'Traffic Spike',       supported: false, desc: 'Coming soon' },
 ]
 
 export function ExperimentModal() {
@@ -68,8 +69,9 @@ export function ExperimentModal() {
       setPhase('propagating')
       resetNodeStates()
 
-      // Mark target node failed immediately
-      setNodeState(pendingExperiment.target_node, { status: 'failed', animating: true, highlighted: true })
+      // Mark target node with appropriate status based on experiment type
+      const targetFinalStatus = expType === 'service_down' ? 'failed' : 'degraded'
+      setNodeState(pendingExperiment.target_node, { status: targetFinalStatus, animating: true, highlighted: true })
 
       // Stagger degradation of affected nodes
       const affectedNodes = data.run.affected_nodes
@@ -98,8 +100,8 @@ export function ExperimentModal() {
         }
       }
 
-      // Target node stays failed
-      setNodeState(pendingExperiment.target_node, { status: 'failed', animating: false, highlighted: true })
+      // Target node stays at its final status
+      setNodeState(pendingExperiment.target_node, { status: targetFinalStatus, animating: false, highlighted: true })
 
       // Store results
       setLastResult(data)
@@ -155,7 +157,7 @@ export function ExperimentModal() {
           >
             {EXPERIMENT_TYPES.map((t) => (
               <option key={t.value} value={t.value} disabled={!t.supported}>
-                {t.label}
+                {t.label}{!t.supported ? ' (coming soon)' : ''}
               </option>
             ))}
           </select>

@@ -23,6 +23,7 @@ export function LeftSidebar() {
     lastResult,
     selectNode,
     setPendingExperiment,
+    setLastResult,
   } = useStore()
 
   const selectedNode = selectedNodeId
@@ -159,32 +160,40 @@ export function LeftSidebar() {
             <div className="panel-section">
               <p className="panel-section-title">Chaos Scenarios</p>
               {[
-                { type: 'service_down', label: 'Service Down', desc: 'Bring a node offline completely', icon: '🔴' },
+                { type: 'service_down',        label: 'Service Down',        desc: 'Bring a node completely offline',       icon: '🔴', active: true },
+                { type: 'latency_spike',        label: 'Latency Spike',       desc: 'Inject high latency into a node',       icon: '⏱', active: true },
+                { type: 'resource_exhaustion',  label: 'Resource Exhaustion', desc: 'Saturate CPU and memory resources',     icon: '📉', active: true },
+                { type: 'traffic_spike',        label: 'Traffic Spike',       desc: 'Coming soon — high-volume traffic',     icon: '📶', active: false },
               ].map((s) => (
                 <div key={s.type} style={{
                   background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)',
+                  border: `1px solid ${s.active ? 'var(--border)' : 'var(--border)'}`,
                   borderRadius: 'var(--radius-md)',
                   padding: '10px',
                   marginBottom: 8,
+                  opacity: s.active ? 1 : 0.5,
                 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
                     <span>{s.icon}</span>
                     <span style={{ fontSize: 12, fontWeight: 600 }}>{s.label}</span>
+                    {!s.active && (
+                      <span style={{ fontSize: 9, color: 'var(--text-muted)', marginLeft: 'auto', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        soon
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.desc}</p>
-                  <p style={{
-                    fontSize: 10, color: 'var(--text-muted)',
-                    marginTop: 4, fontStyle: 'italic',
-                    borderTop: '1px solid var(--border)', paddingTop: 4,
-                  }}>
-                    Select a node on the graph, then click "Run Experiment"
-                  </p>
+                  {s.active && (
+                    <p style={{
+                      fontSize: 10, color: 'var(--text-muted)',
+                      marginTop: 4, fontStyle: 'italic',
+                      borderTop: '1px solid var(--border)', paddingTop: 4,
+                    }}>
+                      Select a node on the graph, then click "Run Experiment"
+                    </p>
+                  )}
                 </div>
               ))}
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
-                ℹ Latency injection and traffic spike experiments are planned for a future backend release.
-              </p>
             </div>
           </>
         )}
@@ -266,8 +275,17 @@ export function LeftSidebar() {
         {activeSidebarPanel === 'history' && (
           experimentHistory.length > 0 ? (
             <div>
-              {experimentHistory.map((result, i) => (
-                <div key={i} className="history-item">
+              {experimentHistory.map((result) => (
+                <button
+                  key={result.run.id}
+                  type="button"
+                  className="history-item"
+                  onClick={() => {
+                    setLastResult(result)
+                    setPhase('done')
+                  }}
+                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
                     <span style={{ fontSize: 11, fontWeight: 600 }}>
                       {result.run.id}
@@ -282,7 +300,7 @@ export function LeftSidebar() {
                       {result.analysis.risk.level} risk
                     </span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           ) : (

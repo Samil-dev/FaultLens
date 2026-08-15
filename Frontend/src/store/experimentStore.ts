@@ -84,6 +84,7 @@ interface ExperimentStore {
   setLastResult: (result: ExperimentRunData | null) => void
   experimentHistory: ExperimentRunData[]
   pushHistory: (result: ExperimentRunData) => void
+  setExperimentHistory: (history: ExperimentRunData[]) => void
 
   // ── Active sidebar panel ──────────────────────────────────────────────────────
   activeSidebarPanel: string
@@ -138,6 +139,7 @@ export const useStore = create<ExperimentStore>((set) => ({
   experimentHistory: [],
   pushHistory: (result) =>
     set((s) => ({ experimentHistory: [result, ...s.experimentHistory].slice(0, 20) })),
+  setExperimentHistory: (experimentHistory) => set({ experimentHistory }),
 
   // ── Sidebar ───────────────────────────────────────────────────────────────────
   activeSidebarPanel: 'system',

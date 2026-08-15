@@ -18,14 +18,16 @@ class AIAnalyzer:
 
     def analyze(
         self,
-        resilience_analysis: ResilienceAnalysis
+        resilience_analysis: ResilienceAnalysis,
+        experiment_type: str = "service_down",
     ) -> AIAnalysis:
         """
         Generates an AI interpretation of the resilience analysis.
         """
 
         prompt = self.prompt_builder.build(
-            resilience_analysis
+            resilience_analysis,
+            experiment_type=experiment_type,
         )
 
         response = self.provider.generate(prompt)

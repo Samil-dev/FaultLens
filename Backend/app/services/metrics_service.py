@@ -5,6 +5,10 @@ from app.models.system import System
 from app.models.metric_snapshot import MetricSnapshot
 from app.models.metric_comparison import MetricComparison
 
+# Experiment type alias used in signatures.
+ExperimentType = Literal["service_down", "latency_spike", "resource_exhaustion", "traffic_spike"]
+
+
 class MetricsService:
     """
     Service responsible for generating and working with
@@ -15,12 +19,15 @@ class MetricsService:
         self,
         system: System,
         node_id: str,
-        simulated_status: Literal["healthy", "degraded", "failed"] = "healthy"
+        simulated_status: Literal["healthy", "degraded", "failed"] = "healthy",
+        experiment_type: ExperimentType = "service_down",
     ) -> Metrics:
         """
         Returns simulated metrics for a specific node.
 
-        The metrics depend on the simulated state of the node.
+        The metrics depend on the simulated state of the node AND on the
+        experiment type, so that latency_spike and resource_exhaustion can
+        produce distinct metric signatures when a node is in a degraded state.
         """
 
         # Verify that the requested node exists.
@@ -40,16 +47,8 @@ class MetricsService:
                 error_rate=0.2,
             )
 
-        if simulated_status == "degraded":
-            return Metrics(
-                node_id=node_id,
-                cpu_usage=70.0,
-                memory_usage=68.0,
-                latency_ms=220.0,
-                error_rate=4.0,
-            )
-
         if simulated_status == "failed":
+            # Only service_down reaches "failed"; other types use "degraded".
             return Metrics(
                 node_id=node_id,
                 cpu_usage=95.0,
@@ -58,22 +57,100 @@ class MetricsService:
                 error_rate=25.0,
             )
 
+        # ── degraded — profile varies by experiment type ─────────────────────
+        if simulated_status == "degraded":
+            if experiment_type == "latency_spike":
+                return Metrics(
+                    node_id=node_id,
+                    cpu_usage=40.0,
+                    memory_usage=58.0,
+                    latency_ms=800.0,
+                    error_rate=3.0,
+                )
+
+            if experiment_type == "resource_exhaustion":
+                return Metrics(
+                    node_id=node_id,
+                    cpu_usage=92.0,
+                    memory_usage=88.0,
+                    latency_ms=180.0,
+                    error_rate=8.0,
+                )
+
+            # Default degraded profile (service_down, or any unspecified type).
+            return Metrics(
+                node_id=node_id,
+                cpu_usage=70.0,
+                memory_usage=68.0,
+                latency_ms=220.0,
+                error_rate=4.0,
+            )
+
         raise ValueError(
             f"Unsupported simulated status '{simulated_status}'"
         )
-    
+
+    def get_downstream_metrics(
+        self,
+        system: System,
+        node_id: str,
+        experiment_type: ExperimentType = "service_down",
+    ) -> Metrics:
+        """
+        Returns simulated metrics for a downstream (affected) node.
+
+        Downstream nodes are always "degraded" but the degree of degradation
+        is lighter than the direct target and varies by experiment type.
+        """
+
+        node_ids = {node.id for node in system.nodes}
+        if node_id not in node_ids:
+            raise ValueError(
+                f"Node '{node_id}' does not exist in the system"
+            )
+
+        if experiment_type == "latency_spike":
+            return Metrics(
+                node_id=node_id,
+                cpu_usage=42.0,
+                memory_usage=60.0,
+                latency_ms=350.0,
+                error_rate=2.5,
+            )
+
+        if experiment_type == "resource_exhaustion":
+            return Metrics(
+                node_id=node_id,
+                cpu_usage=65.0,
+                memory_usage=70.0,
+                latency_ms=120.0,
+                error_rate=3.5,
+            )
+
+        # service_down downstream — uses the same generic degraded profile.
+        return Metrics(
+            node_id=node_id,
+            cpu_usage=70.0,
+            memory_usage=68.0,
+            latency_ms=220.0,
+            error_rate=4.0,
+        )
+
     def create_snapshot(
         self,
         system: System,
         status_overrides: dict[
             str,
             Literal["healthy", "degraded", "failed"]
-        ] | None = None
+        ] | None = None,
+        experiment_type: ExperimentType = "service_down",
     ) -> list[MetricSnapshot]:
         """
         Creates a metrics snapshot for every node in the system.
 
         status_overrides can be used to simulate node states.
+        experiment_type is forwarded to get_node_metrics so that degraded
+        nodes produce the correct metric signature for the given experiment.
         """
 
         snapshots = []
@@ -91,7 +168,8 @@ class MetricsService:
             metrics = self.get_node_metrics(
                 system,
                 node.id,
-                simulated_status
+                simulated_status,
+                experiment_type,
             )
 
             snapshots.append(
