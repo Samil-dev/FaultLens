@@ -1,0 +1,20 @@
+﻿# ── Frontend ──────────────────────────────────────────────────────────────────
+Frontend/node_modules/
+Frontend/dist/
+Frontend/.env
+Frontend/.env.*
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+Backend/venv/
+Backend/.venv/
+Backend/__pycache__/
+Backend/**/__pycache__/
+Backend/**/*.py[cod]
+Backend/.env
+Backend/.env.*
+
+# ── IDE / OS ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
