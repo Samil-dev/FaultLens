@@ -25,7 +25,7 @@ export function RightPanel() {
           </span>
         </div>
         <div className="panel-section" style={{ marginTop: 'auto' }}>
-          <p className="panel-section-title">About CodeTwin</p>
+          <p className="panel-section-title">About FaultLens</p>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.7 }}>
             Don't wait for a production failure.<br />
             Simulate it, understand it, and improve resilience before it happens.

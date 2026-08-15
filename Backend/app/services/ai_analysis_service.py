@@ -18,6 +18,7 @@ class AIAnalysisService:
         self,
         resilience_analysis: ResilienceAnalysis,
         experiment_type: str = "service_down",
+        target_node: str | None = None,
     ) -> AIAnalysis:
         """
         Generates an AI interpretation of a resilience analysis.
@@ -26,4 +27,5 @@ class AIAnalysisService:
         return self.analyzer.analyze(
             resilience_analysis,
             experiment_type=experiment_type,
+            target_node=target_node,
         )

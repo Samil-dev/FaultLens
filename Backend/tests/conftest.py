@@ -138,6 +138,30 @@ def resource_exhaustion_gateway(demo_system: System) -> Experiment:
     )
 
 
+@pytest.fixture
+def traffic_spike_db_main(demo_system: System) -> Experiment:
+    """traffic_spike targeting db-main — maximum propagation in the demo topology."""
+    return Experiment(
+        id="exp-test-traffic-db-main",
+        system_id=demo_system.id,
+        target_node="db-main",
+        type="traffic_spike",
+        duration_seconds=30,
+    )
+
+
+@pytest.fixture
+def traffic_spike_gateway(demo_system: System) -> Experiment:
+    """traffic_spike targeting gateway — no affected nodes."""
+    return Experiment(
+        id="exp-test-traffic-gateway",
+        system_id=demo_system.id,
+        target_node="gateway",
+        type="traffic_spike",
+        duration_seconds=30,
+    )
+
+
 # ── FastAPI TestClient ────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="session")

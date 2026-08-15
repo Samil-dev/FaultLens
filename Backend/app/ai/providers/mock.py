@@ -26,6 +26,16 @@ class MockAIProvider(BaseAIProvider):
 
         prompt_lower = prompt.lower()
 
+        if "traffic_spike" in prompt_lower or "traffic spike" in prompt_lower:
+            return (
+                "A sudden surge in request volume overwhelmed the target node, "
+                "exhausting its connection pools and thread capacity. The resulting "
+                "high error rate and elevated latency cascaded to downstream services "
+                "through synchronous dependency chains. The system struggled to shed "
+                "load gracefully, indicating a need for rate limiting and backpressure "
+                "mechanisms at the ingress layer."
+            )
+
         if "latency_spike" in prompt_lower or "latency spike" in prompt_lower:
             return (
                 "High latency was injected into the target node, causing response "

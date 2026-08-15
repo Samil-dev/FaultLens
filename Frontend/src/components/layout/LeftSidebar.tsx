@@ -1,11 +1,13 @@
 import { useStore } from '../../store/experimentStore'
 import { StatusBadge } from '../ui/StatusBadge'
+import { ComparisonPanel } from '../panels/ComparisonPanel'
 
 const NAV_ITEMS = [
   { id: 'system',     icon: '⬡', label: 'Digital Twin'       },
   { id: 'experiment', icon: '⚡', label: 'Chaos Experiments'  },
   { id: 'analysis',   icon: '📊', label: 'Resilience Analysis'},
   { id: 'ai',         icon: '🤖', label: 'AI Insights'        },
+  { id: 'compare',    icon: '⇄',  label: 'Compare Scenarios'  },
   { id: 'metrics',    icon: '📈', label: 'Metrics'            },
   { id: 'history',    icon: '🕑', label: 'History'            },
 ]
@@ -160,10 +162,10 @@ export function LeftSidebar() {
             <div className="panel-section">
               <p className="panel-section-title">Chaos Scenarios</p>
               {[
-                { type: 'service_down',        label: 'Service Down',        desc: 'Bring a node completely offline',       icon: '🔴', active: true },
-                { type: 'latency_spike',        label: 'Latency Spike',       desc: 'Inject high latency into a node',       icon: '⏱', active: true },
-                { type: 'resource_exhaustion',  label: 'Resource Exhaustion', desc: 'Saturate CPU and memory resources',     icon: '📉', active: true },
-                { type: 'traffic_spike',        label: 'Traffic Spike',       desc: 'Coming soon — high-volume traffic',     icon: '📶', active: false },
+                { type: 'service_down',        label: 'Service Down',        desc: 'Bring a node completely offline',          icon: '🔴', active: true },
+                { type: 'latency_spike',        label: 'Latency Spike',       desc: 'Inject high latency into a node',          icon: '⏱', active: true },
+                { type: 'resource_exhaustion',  label: 'Resource Exhaustion', desc: 'Saturate CPU and memory resources',        icon: '📉', active: true },
+                { type: 'traffic_spike',        label: 'Traffic Spike',       desc: 'Simulate a sudden request-volume overload', icon: '📶', active: true },
               ].map((s) => (
                 <div key={s.type} style={{
                   background: 'var(--bg-elevated)',
@@ -310,6 +312,9 @@ export function LeftSidebar() {
             </div>
           )
         )}
+
+        {/* ── Compare panel ─────────────────────────────────────────────── */}
+        {activeSidebarPanel === 'compare' && <ComparisonPanel />}
 
         {/* ── Metrics stub ─────────────────────────────────────────────── */}
         {activeSidebarPanel === 'metrics' && (

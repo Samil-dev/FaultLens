@@ -7,7 +7,7 @@ const EXPERIMENT_TYPES: { value: ExperimentType; label: string; supported: boole
   { value: 'service_down',        label: 'Service Down',        supported: true,  desc: 'Take a node completely offline' },
   { value: 'latency_spike',       label: 'Latency Spike',       supported: true,  desc: 'Inject high latency into a node' },
   { value: 'resource_exhaustion', label: 'Resource Exhaustion', supported: true,  desc: 'Saturate CPU and memory resources' },
-  { value: 'traffic_spike',       label: 'Traffic Spike',       supported: false, desc: 'Coming soon' },
+  { value: 'traffic_spike',       label: 'Traffic Spike',       supported: true,  desc: 'Simulate a sudden request-volume overload' },
 ]
 
 export function ExperimentModal() {

@@ -10,12 +10,14 @@ class PromptBuilder:
         self,
         analysis: ResilienceAnalysis,
         experiment_type: str = "service_down",
+        target_node: str | None = None,
     ) -> str:
         """
         Converts a resilience analysis into a structured prompt.
 
         experiment_type is included so that AI providers can tailor their
         response to the specific failure mode that was simulated.
+        target_node is included so providers can reference the injection point.
         """
 
         critical_nodes = ", ".join(
@@ -32,10 +34,12 @@ class PromptBuilder:
             analysis.recovery.failed_recoveries
         ) or "None"
 
+        target_info = f"\nTarget node: {target_node}" if target_node else ""
+
         return f"""
 You are analyzing the resilience of a software system after a chaos experiment.
 
-Experiment type: {experiment_type}
+Experiment type: {experiment_type}{target_info}
 
 Impact:
 - Blast radius: {analysis.impact.blast_radius}

@@ -55,3 +55,12 @@ class PersistenceService:
         with self._connect() as connection:
             rows = connection.execute(f"{query} ORDER BY created_at DESC", parameters).fetchall()
         return [ExperimentRunData.model_validate_json(row["payload"]) for row in rows]
+
+    def get_experiment(self, run_id: str) -> ExperimentRunData | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload FROM experiment_history WHERE run_id = ?", (run_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return ExperimentRunData.model_validate_json(row["payload"])

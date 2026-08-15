@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.models.experiment_api_response import ExperimentApiResponse
 from app.models.experiment_request import ExperimentRequest
 from app.models.experiment_response import ExperimentRunData
+from app.models.scenario_comparison import ScenarioComparison, ScenarioComparisonRequest
 from app.services.chaos_service import ChaosService
 from app.services.resilience_analysis_service import (
     ResilienceAnalysisService,
@@ -52,6 +53,7 @@ def run_experiment(request: ExperimentRequest):
     ai_analysis = AIAnalysisService().analyze(
         analysis,
         experiment_type=request.experiment.type,
+        target_node=request.experiment.target_node,
     )
 
     result = ExperimentRunData(
@@ -75,3 +77,23 @@ def run_experiment(request: ExperimentRequest):
 @router.get("/", response_model=list[ExperimentRunData])
 def list_experiments(system_id: str | None = None):
     return PersistenceService().list_experiments(system_id)
+
+
+@router.post("/compare", response_model=ScenarioComparison)
+def compare_experiments(request: ScenarioComparisonRequest):
+    """
+    Returns two to four previously-run experiment results for side-by-side comparison.
+    """
+    persistence = PersistenceService()
+    runs: list[ExperimentRunData] = []
+
+    for run_id in request.run_ids:
+        result = persistence.get_experiment(run_id)
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Experiment run '{run_id}' not found",
+            )
+        runs.append(result)
+
+    return ScenarioComparison(runs=runs)

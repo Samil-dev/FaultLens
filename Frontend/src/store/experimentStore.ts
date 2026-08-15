@@ -4,6 +4,7 @@ import type {
   Experiment,
   ExperimentRunData,
   NodeStatus,
+  ScenarioComparison,
 } from '../types/api'
 
 // Demo system that ships with the app — a realistic microservices architecture
@@ -86,6 +87,10 @@ interface ExperimentStore {
   pushHistory: (result: ExperimentRunData) => void
   setExperimentHistory: (history: ExperimentRunData[]) => void
 
+  // ── Scenario comparison ───────────────────────────────────────────────────────
+  comparisonResult: ScenarioComparison | null
+  setComparisonResult: (result: ScenarioComparison | null) => void
+
   // ── Active sidebar panel ──────────────────────────────────────────────────────
   activeSidebarPanel: string
   setActiveSidebarPanel: (panel: string) => void
@@ -140,6 +145,10 @@ export const useStore = create<ExperimentStore>((set) => ({
   pushHistory: (result) =>
     set((s) => ({ experimentHistory: [result, ...s.experimentHistory].slice(0, 20) })),
   setExperimentHistory: (experimentHistory) => set({ experimentHistory }),
+
+  // ── Comparison ────────────────────────────────────────────────────────────────
+  comparisonResult: null,
+  setComparisonResult: (comparisonResult) => set({ comparisonResult }),
 
   // ── Sidebar ───────────────────────────────────────────────────────────────────
   activeSidebarPanel: 'system',

@@ -3,6 +3,8 @@ import type {
   ExperimentApiResponse,
   ExperimentRunData,
   HealthResponse,
+  ScenarioComparison,
+  ScenarioComparisonRequest,
   System,
 } from '../types/api'
 
@@ -50,4 +52,9 @@ export function runExperiment(request: ExperimentRequest): Promise<ExperimentApi
 /** GET /api/experiments/ — retrieve persisted experiment history */
 export function fetchExperimentHistory(systemId: string): Promise<ExperimentRunData[]> {
   return get<ExperimentRunData[]>(`/experiments/?system_id=${encodeURIComponent(systemId)}`)
+}
+
+/** POST /api/experiments/compare — retrieve two to four runs for side-by-side comparison */
+export function compareExperiments(request: ScenarioComparisonRequest): Promise<ScenarioComparison> {
+  return post<ScenarioComparisonRequest, ScenarioComparison>('/experiments/compare', request)
 }

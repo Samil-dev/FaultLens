@@ -275,3 +275,56 @@ class TestResourceExhaustionProfile:
         assert m.memory_usage == pytest.approx(68.0)
         assert m.latency_ms   == pytest.approx(220.0)
         assert m.error_rate   == pytest.approx(4.0)
+
+
+# ── Traffic spike metric profile ──────────────────────────────────────────────
+
+class TestTrafficSpikeProfile:
+    def test_traffic_spike_target_has_high_error_rate(self, svc, demo_system):
+        """Traffic spike signature: very high error rate (12.0) is the primary indicator."""
+        m = svc.get_node_metrics(demo_system, "db-main", "degraded", "traffic_spike")
+        assert m.error_rate == pytest.approx(12.0)
+
+    def test_traffic_spike_target_has_elevated_latency(self, svc, demo_system):
+        """Target node under traffic_spike has elevated latency (320ms)."""
+        m = svc.get_node_metrics(demo_system, "db-main", "degraded", "traffic_spike")
+        assert m.latency_ms == pytest.approx(320.0)
+
+    def test_traffic_spike_target_cpu(self, svc, demo_system):
+        m = svc.get_node_metrics(demo_system, "db-main", "degraded", "traffic_spike")
+        assert m.cpu_usage == pytest.approx(75.0)
+
+    def test_traffic_spike_target_memory(self, svc, demo_system):
+        m = svc.get_node_metrics(demo_system, "db-main", "degraded", "traffic_spike")
+        assert m.memory_usage == pytest.approx(72.0)
+
+    def test_traffic_spike_downstream_cpu(self, svc, demo_system):
+        """Downstream nodes under traffic_spike have moderate CPU (55.0)."""
+        m = svc.get_downstream_metrics(demo_system, "auth", "traffic_spike")
+        assert m.cpu_usage == pytest.approx(55.0)
+
+    def test_traffic_spike_downstream_error_rate(self, svc, demo_system):
+        m = svc.get_downstream_metrics(demo_system, "auth", "traffic_spike")
+        assert m.error_rate == pytest.approx(6.0)
+
+    def test_traffic_spike_downstream_latency(self, svc, demo_system):
+        m = svc.get_downstream_metrics(demo_system, "auth", "traffic_spike")
+        assert m.latency_ms == pytest.approx(180.0)
+
+    def test_traffic_spike_error_rate_exceeds_resource_exhaustion(self, svc, demo_system):
+        """traffic_spike has the highest error rate of all degraded profiles."""
+        ts = svc.get_node_metrics(demo_system, "db-main", "degraded", "traffic_spike")
+        re = svc.get_node_metrics(demo_system, "db-main", "degraded", "resource_exhaustion")
+        assert ts.error_rate > re.error_rate
+
+    def test_traffic_spike_snapshot_target_has_high_error_rate(self, svc, demo_system):
+        snap = svc.create_snapshot(demo_system, {"db-main": "degraded"}, "traffic_spike")
+        db_snap = next(s for s in snap if s.node_id == "db-main")
+        assert db_snap.metrics["error_rate"] == pytest.approx(12.0)
+
+    def test_traffic_spike_snapshot_non_target_nodes_remain_healthy(self, svc, demo_system):
+        snap = svc.create_snapshot(demo_system, {"db-main": "degraded"}, "traffic_spike")
+        for s in snap:
+            if s.node_id == "db-main":
+                continue
+            assert s.metrics["cpu_usage"] == pytest.approx(35.0)

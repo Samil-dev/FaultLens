@@ -216,12 +216,11 @@ class TestValidation:
         with pytest.raises(ValueError, match="does not exist"):
             engine.run(bad_exp)
 
-    def test_traffic_spike_raises_not_implemented_error(self, demo_system):
+    def test_traffic_spike_is_accepted(self, demo_system):
         """
-        'traffic_spike' is accepted by the Experiment model but the
-        ChaosEngine raises NotImplementedError (not yet implemented).
+        'traffic_spike' is now fully implemented and must NOT raise.
         """
-        bad_exp = Experiment(
+        exp = Experiment(
             id="exp-traffic",
             system_id=demo_system.id,
             target_node="gateway",
@@ -229,8 +228,9 @@ class TestValidation:
             duration_seconds=10,
         )
         engine = ChaosEngine(demo_system)
-        with pytest.raises(NotImplementedError, match="traffic_spike"):
-            engine.run(bad_exp)
+        run, events = engine.run(exp)
+        assert run.status == "completed"
+        assert isinstance(events, list)
 
 
 # ── Latency spike ─────────────────────────────────────────────────────────────
@@ -362,3 +362,95 @@ class TestResourceExhaustion:
     ):
         run, _ = _run(demo_system, resource_exhaustion_gateway)
         assert run.affected_nodes == []
+
+
+# ── Traffic spike ─────────────────────────────────────────────────────────────
+
+class TestTrafficSpike:
+    def test_traffic_spike_is_accepted(self, demo_system, traffic_spike_db_main):
+        """traffic_spike produces a completed run without raising."""
+        run, _ = _run(demo_system, traffic_spike_db_main)
+        assert run.status == "completed"
+
+    def test_traffic_spike_target_is_degraded_not_failed(
+        self, demo_system, traffic_spike_db_main
+    ):
+        """traffic_spike must NOT emit 'failure_injected' — target is node_degraded."""
+        _, events = _run(demo_system, traffic_spike_db_main)
+        event_types = [e.event_type for e in events]
+        assert "failure_injected" not in event_types
+        assert "node_degraded" in event_types
+
+    def test_traffic_spike_produces_node_degraded_events_for_all(
+        self, demo_system, traffic_spike_db_main
+    ):
+        run, events = _run(demo_system, traffic_spike_db_main)
+        degraded_ids = {e.node_id for e in events if e.event_type == "node_degraded"}
+        assert traffic_spike_db_main.target_node in degraded_ids
+        for node_id in run.affected_nodes:
+            assert node_id in degraded_ids
+
+    def test_traffic_spike_affected_nodes_correct(
+        self, demo_system, traffic_spike_db_main
+    ):
+        """db-main affects same 4 nodes regardless of experiment type."""
+        run, _ = _run(demo_system, traffic_spike_db_main)
+        assert len(run.affected_nodes) == 4
+        affected_set = set(run.affected_nodes)
+        assert "auth"    in affected_set
+        assert "catalog" in affected_set
+        assert "orders"  in affected_set
+        assert "gateway" in affected_set
+
+    def test_traffic_spike_recovery_target_time_is_10_seconds(
+        self, demo_system, traffic_spike_db_main
+    ):
+        run, _ = _run(demo_system, traffic_spike_db_main)
+        target_recovery = next(
+            r for r in run.recoveries if r.node_id == traffic_spike_db_main.target_node
+        )
+        assert target_recovery.recovery_time_seconds == pytest.approx(10.0)
+
+    def test_traffic_spike_affected_recovery_times_start_at_7_seconds(
+        self, demo_system, traffic_spike_db_main
+    ):
+        run, _ = _run(demo_system, traffic_spike_db_main)
+        affected_recoveries = [r for r in run.recoveries if r.node_id != traffic_spike_db_main.target_node]
+        assert affected_recoveries[0].recovery_time_seconds == pytest.approx(7.0)
+
+    def test_traffic_spike_affected_recovery_times_increment_by_0_2(
+        self, demo_system, traffic_spike_db_main
+    ):
+        run, _ = _run(demo_system, traffic_spike_db_main)
+        affected_recoveries = [r for r in run.recoveries if r.node_id != traffic_spike_db_main.target_node]
+        for i, recovery in enumerate(affected_recoveries):
+            expected = 7.0 + i * 0.2
+            assert recovery.recovery_time_seconds == pytest.approx(expected)
+
+    def test_traffic_spike_target_severity_is_0_85(
+        self, demo_system, traffic_spike_db_main
+    ):
+        _, events = _run(demo_system, traffic_spike_db_main)
+        target_events = [
+            e for e in events if e.node_id == traffic_spike_db_main.target_node
+        ]
+        assert len(target_events) == 1
+        assert target_events[0].severity == pytest.approx(0.85)
+
+    def test_traffic_spike_gateway_has_zero_affected_nodes(
+        self, demo_system, traffic_spike_gateway
+    ):
+        run, _ = _run(demo_system, traffic_spike_gateway)
+        assert run.affected_nodes == []
+
+    def test_traffic_spike_run_id_is_prefixed(self, demo_system, traffic_spike_db_main):
+        run, _ = _run(demo_system, traffic_spike_db_main)
+        assert run.id == f"run-{traffic_spike_db_main.id}"
+
+    def test_traffic_spike_event_id_includes_traffic(
+        self, demo_system, traffic_spike_db_main
+    ):
+        """The primary event ID for traffic_spike contains 'traffic'."""
+        _, events = _run(demo_system, traffic_spike_db_main)
+        target_events = [e for e in events if e.node_id == traffic_spike_db_main.target_node]
+        assert "traffic" in target_events[0].id

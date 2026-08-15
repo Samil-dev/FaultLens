@@ -149,6 +149,16 @@ export interface ExperimentRunData {
   ai_analysis: AIAnalysis
 }
 
+// ─── Scenario comparison ──────────────────────────────────────────────────────
+
+export interface ScenarioComparisonRequest {
+  run_ids: string[]
+}
+
+export interface ScenarioComparison {
+  runs: ExperimentRunData[]
+}
+
 export interface ExperimentApiResponse {
   success: boolean
   data: ExperimentRunData | null

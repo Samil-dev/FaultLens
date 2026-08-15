@@ -18,7 +18,7 @@ class ChaosEngine:
       - service_down:         target → failed,   affected → degraded
       - latency_spike:        target → degraded, affected → degraded
       - resource_exhaustion:  target → degraded, affected → degraded
-      - traffic_spike:        not yet implemented (raises NotImplementedError)
+      - traffic_spike:        target → degraded, affected → degraded
     """
 
     def __init__(self, system: System):
@@ -60,7 +60,7 @@ class ChaosEngine:
             return self._run_resource_exhaustion(experiment)
 
         if experiment.type == "traffic_spike":
-            raise NotImplementedError("traffic_spike is not yet implemented")
+            return self._run_traffic_spike(experiment)
 
         raise ValueError(
             f"Experiment type '{experiment.type}' is not supported"
@@ -189,6 +189,75 @@ class ChaosEngine:
                     node_id=node_id,
                     recovery_status="recovered",
                     recovery_time_seconds=5.0 + (index * 0.2),
+                )
+            )
+
+        run = SimulationRun(
+            id=f"run-{experiment.id}",
+            experiment_id=experiment.id,
+            status="completed",
+            started_at=now,
+            finished_at=now,
+            affected_nodes=affected_nodes,
+            recoveries=recoveries,
+        )
+
+        return run, events
+
+    def _run_traffic_spike(
+        self,
+        experiment: Experiment,
+    ) -> tuple[SimulationRun, list[SimulationEvent]]:
+        """
+        Simulates a traffic spike against the target node (status: degraded).
+        High error rate and elevated latency are the primary signatures.
+        Affected downstream nodes also become degraded.
+        """
+        now = datetime.now(timezone.utc)
+
+        affected_nodes = self.graph.get_affected_nodes(experiment.target_node)
+
+        events: list[SimulationEvent] = []
+
+        # Target node: node_degraded at severity 0.85.
+        events.append(
+            SimulationEvent(
+                id=f"event-{experiment.id}-traffic",
+                run_id=f"run-{experiment.id}",
+                node_id=experiment.target_node,
+                event_type="node_degraded",
+                severity=0.85,
+                timestamp=now,
+            )
+        )
+
+        # Affected nodes also degraded.
+        for index, node_id in enumerate(affected_nodes):
+            events.append(
+                SimulationEvent(
+                    id=f"event-{experiment.id}-{index}",
+                    run_id=f"run-{experiment.id}",
+                    node_id=node_id,
+                    event_type="node_degraded",
+                    severity=max(0.1, 0.85 - ((index + 1) * 0.15)),
+                    timestamp=now,
+                )
+            )
+
+        recoveries: list[Recovery] = [
+            Recovery(
+                node_id=experiment.target_node,
+                recovery_status="recovered",
+                recovery_time_seconds=10.0,
+            )
+        ]
+
+        for index, node_id in enumerate(affected_nodes):
+            recoveries.append(
+                Recovery(
+                    node_id=node_id,
+                    recovery_status="recovered",
+                    recovery_time_seconds=7.0 + (index * 0.2),
                 )
             )
 

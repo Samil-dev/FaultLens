@@ -77,6 +77,15 @@ class MetricsService:
                     error_rate=8.0,
                 )
 
+            if experiment_type == "traffic_spike":
+                return Metrics(
+                    node_id=node_id,
+                    cpu_usage=75.0,
+                    memory_usage=72.0,
+                    latency_ms=320.0,
+                    error_rate=12.0,
+                )
+
             # Default degraded profile (service_down, or any unspecified type).
             return Metrics(
                 node_id=node_id,
@@ -125,6 +134,15 @@ class MetricsService:
                 memory_usage=70.0,
                 latency_ms=120.0,
                 error_rate=3.5,
+            )
+
+        if experiment_type == "traffic_spike":
+            return Metrics(
+                node_id=node_id,
+                cpu_usage=55.0,
+                memory_usage=62.0,
+                latency_ms=180.0,
+                error_rate=6.0,
             )
 
         # service_down downstream — uses the same generic degraded profile.
