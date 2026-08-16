@@ -1,7 +1,10 @@
+import { useMemo, useState } from 'react'
 import { useStore } from '../../store/experimentStore'
 import { StatusBadge } from '../ui/StatusBadge'
 import { ComparisonPanel } from '../panels/ComparisonPanel'
 import { MetricsPanel } from '../panels/MetricsPanel'
+import type { NodeStatus } from '../../types/api'
+import { EXPERIMENT_TYPE_LABEL, formatTimestamp } from '../../utils/format'
 
 const NAV_ITEMS = [
   { id: 'system',     icon: '⬡', label: 'Digital Twin'       },
@@ -12,6 +15,14 @@ const NAV_ITEMS = [
   { id: 'metrics',    icon: '📈', label: 'Metrics'            },
   { id: 'history',    icon: '🕑', label: 'History'            },
 ]
+
+// Worst-of ranking used to roll many node states up into one system status.
+const STATUS_SEVERITY: Record<NodeStatus, number> = {
+  failed: 3,
+  degraded: 2,
+  recovering: 1,
+  healthy: 0,
+}
 
 export function LeftSidebar() {
   const {
@@ -29,10 +40,43 @@ export function LeftSidebar() {
     setLastResult,
   } = useStore()
 
+  const [historyFilter, setHistoryFilter] = useState('')
+
   const selectedNode = selectedNodeId
     ? system.nodes.find((n) => n.id === selectedNodeId)
     : null
   const selectedState = selectedNodeId ? nodeStates[selectedNodeId] : null
+
+  // Rolls every node's live status up into one system-wide indicator —
+  // worst status wins (failed > degraded > recovering > healthy).
+  const systemStatus: NodeStatus = useMemo(() => {
+    let worst: NodeStatus = 'healthy'
+    for (const node of system.nodes) {
+      const s = nodeStates[node.id]?.status ?? (node.status as NodeStatus)
+      if (STATUS_SEVERITY[s] > STATUS_SEVERITY[worst]) worst = s
+    }
+    return worst
+  }, [system.nodes, nodeStates])
+
+  const dependsOnCount = selectedNode
+    ? system.dependencies.filter((d) => d.source === selectedNode.id).length
+    : 0
+  const dependedByCount = selectedNode
+    ? system.dependencies.filter((d) => d.target === selectedNode.id).length
+    : 0
+
+  const filteredHistory = useMemo(() => {
+    const q = historyFilter.trim().toLowerCase()
+    if (!q) return experimentHistory
+    return experimentHistory.filter((result) => {
+      const targetName = system.nodes.find((n) => n.id === result.run.target_node)?.name ?? result.run.target_node
+      return (
+        targetName.toLowerCase().includes(q) ||
+        result.run.type.toLowerCase().includes(q) ||
+        result.analysis.risk.level.toLowerCase().includes(q)
+      )
+    })
+  }, [experimentHistory, historyFilter, system.nodes])
 
   function handleRunExperiment() {
     if (!selectedNodeId) return
@@ -79,7 +123,7 @@ export function LeftSidebar() {
               </div>
               <div className="stat-row">
                 <span className="stat-label">Status</span>
-                <StatusBadge variant="healthy" />
+                <StatusBadge variant={systemStatus} />
               </div>
             </div>
 
@@ -130,6 +174,14 @@ export function LeftSidebar() {
                   <div className="stat-row">
                     <span className="stat-label">Status</span>
                     <StatusBadge variant={selectedState.status} />
+                  </div>
+                  <div className="stat-row">
+                    <span className="stat-label">Depends on</span>
+                    <span className="stat-value">{dependsOnCount} service{dependsOnCount === 1 ? '' : 's'}</span>
+                  </div>
+                  <div className="stat-row">
+                    <span className="stat-label">Depended on by</span>
+                    <span className="stat-value">{dependedByCount} service{dependedByCount === 1 ? '' : 's'}</span>
                   </div>
                   {selectedNode.description && (
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
@@ -205,7 +257,10 @@ export function LeftSidebar() {
         {activeSidebarPanel === 'analysis' && (
           lastResult ? (
             <div className="panel-section">
-              <p className="panel-section-title">Last Analysis</p>
+              <p className="panel-section-title">
+                Last Analysis
+                <span style={{ marginLeft: 6, color: 'var(--color-healthy)' }}>· Observed data</span>
+              </p>
               <div className="stat-row">
                 <span className="stat-label">Blast radius</span>
                 <span className="stat-value">
@@ -244,7 +299,10 @@ export function LeftSidebar() {
         {activeSidebarPanel === 'ai' && (
           lastResult ? (
             <div className="panel-section">
-              <p className="panel-section-title">AI Insights</p>
+              <p className="panel-section-title">
+                AI Insights
+                <span style={{ marginLeft: 6, color: 'var(--accent)' }}>· AI interpretation</span>
+              </p>
               <div style={{
                 background: 'var(--bg-elevated)', border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-md)', padding: 10, marginBottom: 8,
@@ -278,33 +336,62 @@ export function LeftSidebar() {
         {activeSidebarPanel === 'history' && (
           experimentHistory.length > 0 ? (
             <div>
-              {experimentHistory.map((result) => (
-                <button
-                  key={result.run.id}
-                  type="button"
-                  className="history-item"
-                  onClick={() => {
-                    setLastResult(result)
-                    setPhase('done')
-                  }}
-                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600 }}>
-                      {result.run.id}
-                    </span>
-                    <StatusBadge variant={result.resilience_score.rating as any} dot={false} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                      Score: {result.resilience_score.score}
-                    </span>
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                      {result.analysis.risk.level} risk
-                    </span>
-                  </div>
-                </button>
-              ))}
+              <div style={{ padding: '10px 14px 4px' }}>
+                <input
+                  type="search"
+                  className="form-input"
+                  placeholder="Filter by node, scenario, or risk…"
+                  aria-label="Filter experiment history"
+                  value={historyFilter}
+                  onChange={(e) => setHistoryFilter(e.target.value)}
+                />
+              </div>
+              {filteredHistory.length === 0 ? (
+                <div className="empty-state">
+                  <span className="empty-icon">🔍</span>
+                  <span>No runs match "{historyFilter}".</span>
+                </div>
+              ) : (
+                filteredHistory.map((result) => {
+                  const targetName = system.nodes.find((n) => n.id === result.run.target_node)?.name
+                    ?? result.run.target_node
+                  return (
+                    <button
+                      key={result.run.id}
+                      type="button"
+                      className="history-item"
+                      onClick={() => {
+                        setLastResult(result)
+                        setPhase('done')
+                      }}
+                      style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {targetName}
+                        </span>
+                        <StatusBadge variant={result.resilience_score.rating as any} dot={false} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          {EXPERIMENT_TYPE_LABEL[result.run.type] ?? result.run.type}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          {formatTimestamp(result.run.created_at)}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          Score: {result.resilience_score.score}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          {result.analysis.risk.level} risk
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
             </div>
           ) : (
             <div className="empty-state">
