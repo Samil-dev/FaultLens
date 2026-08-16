@@ -1,5 +1,7 @@
 # Punto de entrada de la aplicación backend (FastAPI).
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -7,13 +9,27 @@ from fastapi.responses import JSONResponse
 from app.api.health import router as health_router
 from app.api.system import router as system_router
 from app.api.experiment import router as experiment_router
+from app.services.demo_system import build_demo_system
+from app.services.persistence_service import PersistenceService
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Seed the demo Digital Twin on first run so GET /api/systems is never
+    # empty out of the box. Only seeds when no system has been persisted yet,
+    # so it never overwrites real user data on subsequent restarts.
+    persistence = PersistenceService()
+    if not persistence.list_systems():
+        persistence.save_system(build_demo_system())
+    yield
 
 
 # Instancia principal de FastAPI.
 app = FastAPI(
     title="FaultLens API",
     description="Backend API for FaultLens — Chaos Engineering & Resilience Intelligence",
-    version="0.2.0"
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 

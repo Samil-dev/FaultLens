@@ -12,6 +12,7 @@ Backend/**/__pycache__/
 Backend/**/*.py[cod]
 Backend/.env
 Backend/.env.*
+Backend/codetwin.sqlite3
 
 # ── IDE / OS ──────────────────────────────────────────────────────────────────
 .vscode/
