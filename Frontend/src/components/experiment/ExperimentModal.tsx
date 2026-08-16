@@ -2,13 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store/experimentStore'
 import { runExperiment } from '../../services/api'
 import type { ExperimentType } from '../../types/api'
-
-const EXPERIMENT_TYPES: { value: ExperimentType; label: string; supported: boolean; desc: string }[] = [
-  { value: 'service_down',        label: 'Service Down',        supported: true,  desc: 'Take a node completely offline' },
-  { value: 'latency_spike',       label: 'Latency Spike',       supported: true,  desc: 'Inject high latency into a node' },
-  { value: 'resource_exhaustion', label: 'Resource Exhaustion', supported: true,  desc: 'Saturate CPU and memory resources' },
-  { value: 'traffic_spike',       label: 'Traffic Spike',       supported: true,  desc: 'Simulate a sudden request-volume overload' },
-]
+import { EXPERIMENT_TYPES } from '../../constants/experimentTypes'
 
 export function ExperimentModal() {
   const {
@@ -26,12 +20,12 @@ export function ExperimentModal() {
   const [expType, setExpType] = useState<ExperimentType>('service_down')
   const [duration, setDuration] = useState(30)
   const [error, setError] = useState<string | null>(null)
-  const selectRef = useRef<HTMLSelectElement>(null)
+  const firstCardRef = useRef<HTMLButtonElement>(null)
   const isOpen = phase === 'configuring' && !!pendingExperiment
 
   // Autofocus the first control when the modal opens.
   useEffect(() => {
-    if (isOpen) selectRef.current?.focus()
+    if (isOpen) firstCardRef.current?.focus()
   }, [isOpen])
 
   // Close on Escape, unless an experiment is actively running.
@@ -137,7 +131,7 @@ export function ExperimentModal() {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && close()}>
-      <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="experiment-modal-title">
+      <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="experiment-modal-title" style={{ width: 520 }}>
         <div className="modal-title" id="experiment-modal-title">
           ⚡ Run Chaos Experiment
         </div>
@@ -165,22 +159,54 @@ export function ExperimentModal() {
           }}>🎯</div>
         </div>
 
-        {/* Experiment type */}
+        {/* Experiment type — professional experiment cards, one per backend-supported scenario */}
         <div className="form-group">
-          <label className="form-label" htmlFor="experiment-type-select">Failure Scenario</label>
-          <select
-            id="experiment-type-select"
-            ref={selectRef}
-            className="form-select"
-            value={expType}
-            onChange={(e) => setExpType(e.target.value as ExperimentType)}
+          <label className="form-label" id="experiment-type-label">Failure Scenario</label>
+          <div
+            role="radiogroup"
+            aria-labelledby="experiment-type-label"
+            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}
           >
-            {EXPERIMENT_TYPES.map((t) => (
-              <option key={t.value} value={t.value} disabled={!t.supported}>
-                {t.label}{!t.supported ? ' (coming soon)' : ''}
-              </option>
-            ))}
-          </select>
+            {EXPERIMENT_TYPES.map((t, i) => {
+              const selected = expType === t.value
+              return (
+                <button
+                  key={t.value}
+                  ref={i === 0 ? firstCardRef : undefined}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setExpType(t.value)}
+                  title={`Simulates: ${t.simulates}\nTests: ${t.tests}\nObserve: ${t.observe}`}
+                  style={{
+                    textAlign: 'left',
+                    background: selected ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+                    border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    padding: '8px 10px',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    font: 'inherit',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <span>{t.icon}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: selected ? 'var(--accent)' : 'var(--text-primary)' }}>
+                      {t.label}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.4 }}>{t.simulates}</p>
+                </button>
+              )
+            })}
+          </div>
+          <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--text-secondary)' }}>Tests: </strong>
+            {EXPERIMENT_TYPES.find((t) => t.value === expType)?.tests}
+            {' '}
+            <strong style={{ color: 'var(--text-secondary)' }}>Observe: </strong>
+            {EXPERIMENT_TYPES.find((t) => t.value === expType)?.observe}
+          </p>
         </div>
 
         {/* Duration */}
