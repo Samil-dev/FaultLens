@@ -79,6 +79,30 @@ html, body, #root {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
 
+/* ── Focus visibility (keyboard navigation) ───────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.graph-node-group:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────────
+   Disables/shortens decorative animation for users who request it, without
+   removing the state transitions that carry information (e.g. status color). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Typography helpers ─────────────────────────────────────────────────────── */
 .label {
   font-size: 10px;
@@ -393,6 +417,10 @@ html, body, #root {
 }
 
 /* ── Metric comparison table ─────────────────────────────────────────────────── */
+.table-scroll {
+  overflow-x: auto;
+}
+
 .metric-table {
   width: 100%;
   border-collapse: collapse;
@@ -407,6 +435,7 @@ html, body, #root {
   text-align: left;
   padding: 4px 6px;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 
 .metric-table td {
@@ -414,12 +443,43 @@ html, body, #root {
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.metric-table td.metric-table-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metric-table tr:last-child td { border-bottom: none; }
 
 .delta-positive { color: var(--color-failed); }
 .delta-zero     { color: var(--text-muted);   }
+
+/* ── Data unavailable ─────────────────────────────────────────────────────────── */
+.value-na {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.badge-unknown { background: rgba(139,148,158,0.12); color: var(--text-muted); }
+
+/* ── Comparison winner highlight ──────────────────────────────────────────────── */
+.stat-winner {
+  color: var(--color-healthy) !important;
+}
+
+.stat-winner::after {
+  content: '✓ best';
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-healthy);
+  opacity: 0.85;
+}
 
 /* ── Graph canvas ────────────────────────────────────────────────────────────── */
 .graph-svg {
@@ -434,6 +494,41 @@ html, body, #root {
 
 .graph-node-group:hover .graph-node-body {
   filter: brightness(1.2);
+}
+
+/* ── Graph zoom/pan controls ───────────────────────────────────────────────────── */
+.graph-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.graph-control-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.graph-control-btn:last-child { border-bottom: none; }
+
+.graph-control-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 /* ── Event log ──────────────────────────────────────────────────────────────── */
