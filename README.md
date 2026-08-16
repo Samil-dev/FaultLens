@@ -19,7 +19,6 @@ The project aims to simulate failures in digital environments and use AI to anal
 
 ## 🏗️ Project Structure
 
-```text
 CodeTwin/
 ├── AI/
 ├── BackEnd/
