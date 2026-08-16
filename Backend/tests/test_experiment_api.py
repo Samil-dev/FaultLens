@@ -415,6 +415,68 @@ class TestListExperimentsEndpoint:
         assert isinstance(body, list)
 
 
+# ── Suggest next experiment endpoint ──────────────────────────────────────────
+
+class TestSuggestNextExperimentEndpoint:
+    def test_returns_200_and_valid_shape(self, test_client, run_experiment_payload_db_main):
+        run_resp = test_client.post("/api/experiments/run", json=run_experiment_payload_db_main).json()
+        analysis = run_resp["data"]["analysis"]
+
+        response = test_client.post("/api/experiments/suggest-next", json=analysis)
+        assert response.status_code == 200
+
+        body = response.json()
+        assert body["recommendation_type"] in {
+            "recovery_validation",
+            "critical_dependency",
+            "high_risk_follow_up",
+            "no_immediate_follow_up",
+        }
+        assert "reason" in body
+        assert "risk_level" in body
+
+    def test_critical_dependency_suggests_service_down_on_a_critical_node(
+        self, test_client, run_experiment_payload_db_main
+    ):
+        run_resp = test_client.post("/api/experiments/run", json=run_experiment_payload_db_main).json()
+        analysis = run_resp["data"]["analysis"]
+        assert analysis["impact"]["critical_nodes"], "fixture must produce at least one critical node"
+
+        body = test_client.post("/api/experiments/suggest-next", json=analysis).json()
+        assert body["recommendation_type"] == "critical_dependency"
+        assert body["suggested_experiment"]["type"] == "service_down"
+        assert body["suggested_experiment"]["target_node"] in analysis["impact"]["critical_nodes"]
+
+    def test_no_follow_up_when_analysis_is_clean(self, test_client):
+        """A hand-built, low-impact analysis with no critical nodes or failed
+        recoveries should not suggest a follow-up experiment."""
+        clean_analysis = {
+            "impact": {
+                "blast_radius": 0.0,
+                "affected_nodes": 0,
+                "total_nodes": 10,
+                "critical_nodes": [],
+                "average_metric_impact": 0.0,
+            },
+            "recovery": {
+                "recovered_nodes": 0,
+                "total_recovery_nodes": 0,
+                "average_recovery_seconds": 0.0,
+                "max_recovery_seconds": 0.0,
+                "failed_recoveries": [],
+            },
+            "risk": {"level": "low", "reason": "No impact observed."},
+            "recommendations": [],
+        }
+        body = test_client.post("/api/experiments/suggest-next", json=clean_analysis).json()
+        assert body["recommendation_type"] == "no_immediate_follow_up"
+        assert body["suggested_experiment"] is None
+
+    def test_malformed_body_returns_422(self, test_client):
+        response = test_client.post("/api/experiments/suggest-next", json={"not": "an analysis"})
+        assert response.status_code == 422
+
+
 # ── Scenario comparison endpoint ──────────────────────────────────────────────
 
 class TestCompareExperimentsEndpoint:

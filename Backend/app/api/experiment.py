@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException
 from app.models.experiment_api_response import ExperimentApiResponse
 from app.models.experiment_request import ExperimentRequest
 from app.models.experiment_response import ExperimentRunData
+from app.models.next_experiment_suggestion import NextExperimentSuggestion
+from app.models.resilience_analysis import ResilienceAnalysis
 from app.models.scenario_comparison import ScenarioComparison, ScenarioComparisonRequest
 from app.services.chaos_service import ChaosService
 from app.services.resilience_analysis_service import (
@@ -11,6 +13,9 @@ from app.services.resilience_analysis_service import (
 from app.services.resilience_service import ResilienceService
 from app.services.ai_analysis_service import AIAnalysisService
 from app.services.persistence_service import PersistenceService
+from app.services.resilience_orchestrator import (
+    suggest_next_experiment as compute_next_experiment_suggestion,
+)
 
 
 router = APIRouter(
@@ -77,6 +82,16 @@ def run_experiment(request: ExperimentRequest):
 @router.get("/", response_model=list[ExperimentRunData])
 def list_experiments(system_id: str | None = None):
     return PersistenceService().list_experiments(system_id)
+
+
+@router.post("/suggest-next", response_model=NextExperimentSuggestion)
+def suggest_next_experiment(analysis: ResilienceAnalysis):
+    """
+    Suggests a logical follow-up experiment based on a completed resilience
+    analysis (recovery failures and critical dependencies take priority).
+    """
+    suggestion = compute_next_experiment_suggestion(analysis.model_dump(mode="json"))
+    return NextExperimentSuggestion(**suggestion)
 
 
 @router.post("/compare", response_model=ScenarioComparison)
