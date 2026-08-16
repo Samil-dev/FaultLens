@@ -431,7 +431,7 @@ export function RightPanel() {
         </div>
 
         {/* ── Recommended next experiment ── */}
-        <NextExperimentSuggestion analysis={analysis} />
+        <NextExperimentSuggestion analysis={analysis} lastTargetNode={run.target_node} />
       </div>
     </aside>
   )

@@ -9,14 +9,22 @@ type State =
   | { status: 'error'; message: string }
   | { status: 'ready'; suggestion: Suggestion }
 
-export function NextExperimentSuggestion({ analysis }: { analysis: ResilienceAnalysis }) {
+export function NextExperimentSuggestion({
+  analysis,
+  lastTargetNode,
+}: {
+  analysis: ResilienceAnalysis
+  /** The node the experiment that produced `analysis` already targeted —
+   *  passed through so the backend doesn't just re-suggest it. */
+  lastTargetNode: string
+}) {
   const { system, setPendingExperiment, setPhase } = useStore()
   const [state, setState] = useState<State>({ status: 'loading' })
 
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
-    suggestNextExperiment(analysis)
+    suggestNextExperiment(analysis, lastTargetNode)
       .then((suggestion) => { if (!cancelled) setState({ status: 'ready', suggestion }) })
       .catch((err) => {
         if (!cancelled) setState({
@@ -25,7 +33,7 @@ export function NextExperimentSuggestion({ analysis }: { analysis: ResilienceAna
         })
       })
     return () => { cancelled = true }
-  }, [analysis])
+  }, [analysis, lastTargetNode])
 
   function runSuggested(exp: NonNullable<Suggestion['suggested_experiment']>) {
     setPendingExperiment({

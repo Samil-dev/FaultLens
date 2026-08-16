@@ -63,7 +63,16 @@ export function compareExperiments(request: ScenarioComparisonRequest): Promise<
   return post<ScenarioComparisonRequest, ScenarioComparison>('/experiments/compare', request)
 }
 
-/** POST /api/experiments/suggest-next — suggest a logical follow-up experiment for a completed analysis */
-export function suggestNextExperiment(analysis: ResilienceAnalysis): Promise<NextExperimentSuggestion> {
-  return post<ResilienceAnalysis, NextExperimentSuggestion>('/experiments/suggest-next', analysis)
+/**
+ * POST /api/experiments/suggest-next — suggest a logical follow-up experiment
+ * for a completed analysis. `lastTargetNode` (the node the analysis's own
+ * experiment already targeted) lets the backend avoid immediately
+ * re-suggesting that same node when a real alternative exists.
+ */
+export function suggestNextExperiment(
+  analysis: ResilienceAnalysis,
+  lastTargetNode?: string,
+): Promise<NextExperimentSuggestion> {
+  const query = lastTargetNode ? `?last_target_node=${encodeURIComponent(lastTargetNode)}` : ''
+  return post<ResilienceAnalysis, NextExperimentSuggestion>(`/experiments/suggest-next${query}`, analysis)
 }

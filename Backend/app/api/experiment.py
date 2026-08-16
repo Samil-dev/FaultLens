@@ -85,12 +85,20 @@ def list_experiments(system_id: str | None = None):
 
 
 @router.post("/suggest-next", response_model=NextExperimentSuggestion)
-def suggest_next_experiment(analysis: ResilienceAnalysis):
+def suggest_next_experiment(analysis: ResilienceAnalysis, last_target_node: str | None = None):
     """
     Suggests a logical follow-up experiment based on a completed resilience
     analysis (recovery failures and critical dependencies take priority).
+
+    `last_target_node` (optional query param) is the node the experiment
+    that produced this analysis already targeted. When supplied, it's used
+    to avoid immediately re-suggesting the same node if the analysis offers
+    a real alternative — see resilience_orchestrator.suggest_next_experiment.
     """
-    suggestion = compute_next_experiment_suggestion(analysis.model_dump(mode="json"))
+    suggestion = compute_next_experiment_suggestion(
+        analysis.model_dump(mode="json"),
+        last_target_node=last_target_node,
+    )
     return NextExperimentSuggestion(**suggestion)
 
 

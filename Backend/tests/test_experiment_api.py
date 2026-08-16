@@ -476,6 +476,92 @@ class TestSuggestNextExperimentEndpoint:
         response = test_client.post("/api/experiments/suggest-next", json={"not": "an analysis"})
         assert response.status_code == 422
 
+    def test_last_target_node_is_skipped_when_a_real_alternative_exists(self, test_client):
+        """When critical_nodes has more than one entry, the node the user
+        just tested (last_target_node) must not be re-suggested if another
+        critical node is available."""
+        analysis = {
+            "impact": {
+                "blast_radius": 0.4, "affected_nodes": 2, "total_nodes": 10,
+                "critical_nodes": ["db-main", "orders"], "average_metric_impact": 0.6,
+            },
+            "recovery": {
+                "recovered_nodes": 2, "total_recovery_nodes": 2,
+                "average_recovery_seconds": 10.0, "max_recovery_seconds": 15.0,
+                "failed_recoveries": [],
+            },
+            "risk": {"level": "moderate", "reason": "Notable impact observed."},
+            "recommendations": [],
+        }
+        body = test_client.post(
+            "/api/experiments/suggest-next?last_target_node=db-main", json=analysis
+        ).json()
+        assert body["recommendation_type"] == "critical_dependency"
+        assert body["suggested_experiment"]["target_node"] == "orders"
+        assert "orders" in body["reason"]
+
+    def test_last_target_node_falls_back_to_itself_when_no_alternative(self, test_client):
+        """When the only critical node IS the one just tested, it's still
+        suggested (re-validation is legitimate) but the reason must say so
+        honestly instead of implying a newly-discovered dependency."""
+        analysis = {
+            "impact": {
+                "blast_radius": 0.1, "affected_nodes": 1, "total_nodes": 10,
+                "critical_nodes": ["db-main"], "average_metric_impact": 0.6,
+            },
+            "recovery": {
+                "recovered_nodes": 1, "total_recovery_nodes": 1,
+                "average_recovery_seconds": 10.0, "max_recovery_seconds": 15.0,
+                "failed_recoveries": [],
+            },
+            "risk": {"level": "low", "reason": "Limited impact observed."},
+            "recommendations": [],
+        }
+        body = test_client.post(
+            "/api/experiments/suggest-next?last_target_node=db-main", json=analysis
+        ).json()
+        assert body["suggested_experiment"]["target_node"] == "db-main"
+        assert "remains the only critical component" in body["reason"]
+
+    def test_without_last_target_node_behavior_is_unchanged(self, test_client):
+        """Omitting last_target_node (the pre-existing contract) must keep
+        suggesting the first critical node, exactly as before."""
+        analysis = {
+            "impact": {
+                "blast_radius": 0.4, "affected_nodes": 2, "total_nodes": 10,
+                "critical_nodes": ["db-main", "orders"], "average_metric_impact": 0.6,
+            },
+            "recovery": {
+                "recovered_nodes": 2, "total_recovery_nodes": 2,
+                "average_recovery_seconds": 10.0, "max_recovery_seconds": 15.0,
+                "failed_recoveries": [],
+            },
+            "risk": {"level": "moderate", "reason": "Notable impact observed."},
+            "recommendations": [],
+        }
+        body = test_client.post("/api/experiments/suggest-next", json=analysis).json()
+        assert body["suggested_experiment"]["target_node"] == "db-main"
+
+    def test_last_target_node_skipped_in_failed_recoveries_too(self, test_client):
+        analysis = {
+            "impact": {
+                "blast_radius": 0.3, "affected_nodes": 2, "total_nodes": 10,
+                "critical_nodes": [], "average_metric_impact": 0.3,
+            },
+            "recovery": {
+                "recovered_nodes": 0, "total_recovery_nodes": 2,
+                "average_recovery_seconds": 20.0, "max_recovery_seconds": 30.0,
+                "failed_recoveries": ["cart", "orders"],
+            },
+            "risk": {"level": "high", "reason": "Recovery failed."},
+            "recommendations": [],
+        }
+        body = test_client.post(
+            "/api/experiments/suggest-next?last_target_node=cart", json=analysis
+        ).json()
+        assert body["recommendation_type"] == "recovery_validation"
+        assert body["suggested_experiment"]["target_node"] == "orders"
+
 
 # ── Scenario comparison endpoint ──────────────────────────────────────────────
 

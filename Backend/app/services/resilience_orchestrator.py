@@ -81,12 +81,35 @@ def get_resilience_analysis(
     }
 
 
+def _first_other(candidates: list, exclude: str | None) -> str:
+    """
+    Returns the first candidate that isn't `exclude` (the node just tested),
+    so a follow-up suggestion doesn't just repeat the last experiment when a
+    genuine alternative is available. Falls back to the first candidate if
+    every one of them is the excluded node.
+    """
+
+    for candidate in candidates:
+        if candidate != exclude:
+            return candidate
+
+    return candidates[0]
+
+
 def suggest_next_experiment(
     analysis: dict,
+    last_target_node: str | None = None,
 ) -> dict:
     """
     Suggests a logical next experiment based on
     the deterministic resilience analysis.
+
+    `last_target_node`, when provided, is the node the experiment that
+    produced this analysis already targeted — used only to avoid
+    recommending an immediate repeat of the same experiment when the
+    analysis offers a real alternative. It never changes *which* branch of
+    the recommendation is chosen, only *which node within that branch* is
+    suggested.
 
     This does not attempt to replace IBM Bob's reasoning.
     It provides structured evidence that Bob can use.
@@ -112,7 +135,7 @@ def suggest_next_experiment(
     )
 
     if failed_recoveries:
-        target_node = failed_recoveries[0]
+        target_node = _first_other(failed_recoveries, last_target_node)
 
         return {
             "recommendation_type": "recovery_validation",
@@ -129,7 +152,24 @@ def suggest_next_experiment(
         }
 
     if critical_nodes:
-        target_node = critical_nodes[0]
+        other_critical_nodes = [n for n in critical_nodes if n != last_target_node]
+
+        if other_critical_nodes:
+            target_node = other_critical_nodes[0]
+            reason = (
+                f"Node '{target_node}' was identified as a "
+                "critical component in the resilience analysis."
+            )
+        else:
+            # The only critical node on record is the one just tested —
+            # still worth re-validating, but say so honestly instead of
+            # phrasing it as if a new dependency had been discovered.
+            target_node = critical_nodes[0]
+            reason = (
+                f"Node '{target_node}' remains the only critical component "
+                "identified so far. Re-testing it will confirm whether its "
+                "resilience has improved."
+            )
 
         return {
             "recommendation_type": "critical_dependency",
@@ -138,10 +178,7 @@ def suggest_next_experiment(
                 "target_node": target_node,
                 "duration_seconds": 30,
             },
-            "reason": (
-                f"Node '{target_node}' was identified as a "
-                "critical component in the resilience analysis."
-            ),
+            "reason": reason,
             "risk_level": risk_level,
         }
 
