@@ -1,9 +1,22 @@
 import { useEffect } from 'react'
 import { useStore } from '../../store/experimentStore'
 import { fetchHealth } from '../../services/api'
+import { EXPERIMENT_TYPE_LABEL } from '../../utils/format'
 
 export function Header() {
-  const { connectionStatus, setConnectionStatus, phase, system, lastResult } = useStore()
+  const { connectionStatus, setConnectionStatus, phase, system, lastResult, selectedNodeId, setSystemImportOpen } = useStore()
+
+  // Breadcrumb reflecting where the user is in the experiment lifecycle:
+  // System -> selected node -> scenario -> lifecycle stage.
+  const selectedNode = selectedNodeId ? system.nodes.find((n) => n.id === selectedNodeId) : null
+  const breadcrumb: string[] = [system.name]
+  if (selectedNode) breadcrumb.push(selectedNode.name)
+  if (phase === 'configuring') breadcrumb.push('Configure experiment')
+  if (phase === 'running' || phase === 'propagating') breadcrumb.push('Simulating')
+  if (phase === 'done' && lastResult) {
+    breadcrumb.push(EXPERIMENT_TYPE_LABEL[lastResult.run.type] ?? lastResult.run.type)
+    breadcrumb.push('Analysis')
+  }
 
   // Poll backend health
   useEffect(() => {
@@ -50,10 +63,33 @@ export function Header() {
         </span>
       </div>
 
-      {/* System name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto' }}>
-        <span className="label">System</span>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{system.name}</span>
+      {/* Breadcrumb: system -> selected node -> lifecycle stage */}
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto', minWidth: 0, overflow: 'hidden' }}
+        aria-label="Experiment lifecycle breadcrumb"
+      >
+        {breadcrumb.map((part, i) => (
+          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            {i > 0 && <span style={{ color: 'var(--text-muted)' }}>/</span>}
+            <span style={{
+              fontSize: 12,
+              color: i === breadcrumb.length - 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: i === breadcrumb.length - 1 ? 600 : 400,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {part}
+            </span>
+          </span>
+        ))}
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ marginLeft: 10, flexShrink: 0 }}
+          onClick={() => setSystemImportOpen(true)}
+          aria-label="Import a system architecture"
+          title="Import a system architecture"
+        >
+          ⬡ Import System
+        </button>
       </div>
 
       {/* Resilience score pill */}
