@@ -4,7 +4,10 @@ import { fetchHealth } from '../../services/api'
 import { EXPERIMENT_TYPE_LABEL } from '../../utils/format'
 
 export function Header() {
-  const { connectionStatus, setConnectionStatus, phase, system, lastResult, selectedNodeId, setSystemImportOpen } = useStore()
+  const {
+    connectionStatus, setConnectionStatus, phase, system, lastResult, selectedNodeId,
+    setSystemImportOpen, setSystemSwitcherOpen,
+  } = useStore()
 
   // Breadcrumb reflecting where the user is in the experiment lifecycle:
   // System -> selected node -> scenario -> lifecycle stage.
@@ -68,19 +71,41 @@ export function Header() {
         style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto', minWidth: 0, overflow: 'hidden' }}
         aria-label="Experiment lifecycle breadcrumb"
       >
-        {breadcrumb.map((part, i) => (
-          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            {i > 0 && <span style={{ color: 'var(--text-muted)' }}>/</span>}
-            <span style={{
-              fontSize: 12,
-              color: i === breadcrumb.length - 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
-              fontWeight: i === breadcrumb.length - 1 ? 600 : 400,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
+        {breadcrumb.map((part, i) =>
+          i === 0 ? (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setSystemSwitcherOpen(true)}
+              title="Switch active system"
+              aria-label={`Active system: ${part}. Click to switch systems.`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 4px',
+                marginLeft: -4, borderRadius: 'var(--radius-sm)',
+                fontSize: 12,
+                color: breadcrumb.length === 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontWeight: breadcrumb.length === 1 ? 600 : 400,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220,
+              }}
+            >
               {part}
+              <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>▾</span>
+            </button>
+          ) : (
+            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span style={{ color: 'var(--text-muted)' }}>/</span>
+              <span style={{
+                fontSize: 12,
+                color: i === breadcrumb.length - 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontWeight: i === breadcrumb.length - 1 ? 600 : 400,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {part}
+              </span>
             </span>
-          </span>
-        ))}
+          )
+        )}
         <button
           className="btn btn-ghost btn-sm"
           style={{ marginLeft: 10, flexShrink: 0 }}

@@ -1,12 +1,12 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { useStore, DEMO_SYSTEM } from '../../store/experimentStore'
-import { createSystem, fetchExperimentHistory } from '../../services/api'
+import { createSystem } from '../../services/api'
 import type { System } from '../../types/api'
 
 type Stage = 'editing' | 'submitting' | 'success'
 
 export function ImportSystemModal() {
-  const { systemImportOpen, setSystemImportOpen, setSystem, setExperimentHistory } = useStore()
+  const { systemImportOpen, setSystemImportOpen, activateSystem, systems, setSystems } = useStore()
 
   const [jsonText, setJsonText] = useState('')
   const [stage, setStage] = useState<Stage>('editing')
@@ -81,15 +81,20 @@ export function ImportSystemModal() {
       }
 
       setImported(response.data)
-      setSystem(response.data)
-      setStage('success')
+      // activateSystem both makes this the active system (persisting its id
+      // so it survives a reload) and loads its real experiment history —
+      // the same single code path used by bootstrap restoration and the
+      // system switcher.
+      await activateSystem(response.data)
 
-      try {
-        const history = await fetchExperimentHistory(response.data.id)
-        setExperimentHistory(history)
-      } catch {
-        setExperimentHistory([])
-      }
+      // Keep the switcher's cached system list in sync without forcing it
+      // to re-fetch the next time it opens.
+      const alreadyKnown = systems.some((s) => s.id === response.data!.id)
+      setSystems(alreadyKnown
+        ? systems.map((s) => (s.id === response.data!.id ? response.data! : s))
+        : [...systems, response.data])
+
+      setStage('success')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed.')
       setStage('editing')
