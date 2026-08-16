@@ -127,6 +127,8 @@ class ChaosEngine:
         run = SimulationRun(
             id=f"run-{experiment.id}",
             experiment_id=experiment.id,
+            type=experiment.type,
+            target_node=experiment.target_node,
             status="completed",
             started_at=now,
             finished_at=now,
@@ -195,6 +197,8 @@ class ChaosEngine:
         run = SimulationRun(
             id=f"run-{experiment.id}",
             experiment_id=experiment.id,
+            type=experiment.type,
+            target_node=experiment.target_node,
             status="completed",
             started_at=now,
             finished_at=now,
@@ -264,6 +268,8 @@ class ChaosEngine:
         run = SimulationRun(
             id=f"run-{experiment.id}",
             experiment_id=experiment.id,
+            type=experiment.type,
+            target_node=experiment.target_node,
             status="completed",
             started_at=now,
             finished_at=now,
@@ -332,6 +338,8 @@ class ChaosEngine:
         run = SimulationRun(
             id=f"run-{experiment.id}",
             experiment_id=experiment.id,
+            type=experiment.type,
+            target_node=experiment.target_node,
             status="completed",
             started_at=now,
             finished_at=now,

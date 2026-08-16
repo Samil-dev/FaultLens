@@ -95,6 +95,8 @@ class TestRunExperimentEndpoint:
         ).json()
         assert "run" in body["data"]
         assert body["data"]["run"]["status"] == "completed"
+        assert body["data"]["run"]["type"] == "service_down"
+        assert body["data"]["run"]["target_node"] == "db-main"
 
     def test_service_down_response_has_resilience_score(
         self, test_client, run_experiment_payload_db_main
@@ -330,6 +332,10 @@ class TestRunExperimentEndpoint:
         first_event = data["events"][0]
         assert first_event["event_type"] == "node_degraded"
         assert first_event["node_id"] == "auth"
+        # run.target_node/type let clients identify the target without
+        # relying on the failure_injected event, which only service_down emits.
+        assert data["run"]["target_node"] == "auth"
+        assert data["run"]["type"] == "latency_spike"
 
 
     def test_traffic_spike_response_has_correct_shape(self, test_client, demo_system):
@@ -356,6 +362,8 @@ class TestRunExperimentEndpoint:
         first_event = data["events"][0]
         assert first_event["event_type"] == "node_degraded"
         assert first_event["node_id"] == "db-main"
+        assert data["run"]["target_node"] == "db-main"
+        assert data["run"]["type"] == "traffic_spike"
 
     def test_traffic_spike_ai_analysis_has_traffic_specific_summary(
         self, test_client, demo_system

@@ -18,6 +18,23 @@ class SimulationRun(BaseModel):
         description="Idenfier of the experiment"
     )
 
+    #Tipo de experimento de caos ejecutado.
+    type: Literal[
+        "service_down",
+        "latency_spike",
+        "resource_exhaustion",
+        "traffic_spike",
+    ] = Field(
+        ...,
+        description="Type of chaos experiment that produced this run"
+    )
+
+    #Nodo objetivo del experimento.
+    target_node: str = Field(
+        ...,
+        description="Identifier of the node the experiment targeted"
+    )
+
     #Estado actual de la ejecucion.
     status: Literal[
         "pending",
