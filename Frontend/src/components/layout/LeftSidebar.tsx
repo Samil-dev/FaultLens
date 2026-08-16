@@ -4,7 +4,15 @@ import { StatusBadge } from '../ui/StatusBadge'
 import { ComparisonPanel } from '../panels/ComparisonPanel'
 import { MetricsPanel } from '../panels/MetricsPanel'
 import type { NodeStatus } from '../../types/api'
-import { EXPERIMENT_TYPE_LABEL, formatTimestamp } from '../../utils/format'
+import { EXPERIMENT_TYPE_LABEL, formatRelativeTime, formatTimestamp } from '../../utils/format'
+import { estimateCriticality, getDirectDependencies, getDirectDependents, getPotentialAffectedNodes } from '../../utils/graph'
+import { EXPERIMENT_TYPES } from '../../constants/experimentTypes'
+
+const CRITICALITY_COLOR: Record<string, string> = {
+  low: 'var(--risk-low)',
+  moderate: 'var(--risk-moderate)',
+  high: 'var(--risk-high)',
+}
 
 const NAV_ITEMS = [
   { id: 'system',     icon: '⬡', label: 'Digital Twin'       },
@@ -58,12 +66,20 @@ export function LeftSidebar() {
     return worst
   }, [system.nodes, nodeStates])
 
-  const dependsOnCount = selectedNode
-    ? system.dependencies.filter((d) => d.source === selectedNode.id).length
-    : 0
-  const dependedByCount = selectedNode
-    ? system.dependencies.filter((d) => d.target === selectedNode.id).length
-    : 0
+  const nodeName = (id: string) => system.nodes.find((n) => n.id === id)?.name ?? id
+
+  const directDependencies = selectedNode ? getDirectDependencies(system, selectedNode.id) : []
+  const directDependents = selectedNode ? getDirectDependents(system, selectedNode.id) : []
+  const potentialAffected = selectedNode ? getPotentialAffectedNodes(system, selectedNode.id) : []
+  const criticality = selectedNode ? estimateCriticality(potentialAffected.length, system.nodes.length) : 'low'
+
+  const degradedCount = system.nodes.filter(
+    (n) => (nodeStates[n.id]?.status ?? (n.status as NodeStatus)) === 'degraded',
+  ).length
+  const criticalCount = lastResult ? lastResult.analysis.impact.critical_nodes.length : null
+  const lastExperimentAt = experimentHistory[0]?.run.created_at
+    ? formatRelativeTime(experimentHistory[0].run.created_at)
+    : null
 
   const filteredHistory = useMemo(() => {
     const q = historyFilter.trim().toLowerCase()
@@ -122,8 +138,38 @@ export function LeftSidebar() {
                 <span className="stat-value">{system.dependencies.length}</span>
               </div>
               <div className="stat-row">
+                <span className="stat-label">Degraded</span>
+                <span className="stat-value" style={{ color: degradedCount > 0 ? 'var(--color-degraded)' : undefined }}>
+                  {degradedCount}
+                </span>
+              </div>
+              <div className="stat-row">
+                <span className="stat-label">Critical</span>
+                <span className={criticalCount === null ? 'stat-value value-na' : 'stat-value'} style={{ color: criticalCount ? 'var(--color-failed)' : undefined }}>
+                  {criticalCount === null ? 'N/A' : criticalCount}
+                </span>
+              </div>
+              <div className="stat-row">
                 <span className="stat-label">Status</span>
                 <StatusBadge variant={systemStatus} />
+              </div>
+              {lastResult && (
+                <div className="stat-row">
+                  <span className="stat-label">Resilience</span>
+                  <span className="stat-value">{lastResult.resilience_score.score.toFixed(0)}</span>
+                </div>
+              )}
+              {lastResult && (
+                <div className="stat-row">
+                  <span className="stat-label">Risk</span>
+                  <StatusBadge variant={lastResult.analysis.risk.level} dot />
+                </div>
+              )}
+              <div className="stat-row">
+                <span className="stat-label">Last experiment</span>
+                <span className={lastExperimentAt ? 'stat-value' : 'stat-value value-na'} style={{ fontSize: 11 }}>
+                  {lastExperimentAt ?? 'None yet'}
+                </span>
               </div>
             </div>
 
@@ -175,19 +221,70 @@ export function LeftSidebar() {
                     <span className="stat-label">Status</span>
                     <StatusBadge variant={selectedState.status} />
                   </div>
-                  <div className="stat-row">
-                    <span className="stat-label">Depends on</span>
-                    <span className="stat-value">{dependsOnCount} service{dependsOnCount === 1 ? '' : 's'}</span>
+
+                  <div style={{ marginTop: 8 }}>
+                    <span className="label" style={{ display: 'block', marginBottom: 3 }}>
+                      Dependencies ({directDependencies.length})
+                    </span>
+                    <p className="value-na" style={{ fontSize: 11, margin: 0 }}>
+                      {directDependencies.length > 0
+                        ? directDependencies.map(nodeName).join(', ')
+                        : 'None — this is a leaf dependency.'}
+                    </p>
                   </div>
-                  <div className="stat-row">
-                    <span className="stat-label">Depended on by</span>
-                    <span className="stat-value">{dependedByCount} service{dependedByCount === 1 ? '' : 's'}</span>
+
+                  <div style={{ marginTop: 8 }}>
+                    <span className="label" style={{ display: 'block', marginBottom: 3 }}>
+                      Dependents ({directDependents.length})
+                    </span>
+                    <p className={directDependents.length > 0 ? '' : 'value-na'} style={{ fontSize: 11, margin: 0 }}>
+                      {directDependents.length > 0
+                        ? directDependents.map(nodeName).join(', ')
+                        : 'None — nothing depends on this service.'}
+                    </p>
                   </div>
+
                   {selectedNode.description && (
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
                       {selectedNode.description}
                     </p>
                   )}
+
+                  {/* ── Impact Preview — topology-based, computed before running anything ── */}
+                  <div style={{
+                    marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)',
+                  }}>
+                    <p className="panel-section-title" style={{ marginBottom: 6 }}>Impact Preview</p>
+                    <div className="stat-row">
+                      <span className="stat-label">Potential blast radius</span>
+                      <span className="stat-value">
+                        {potentialAffected.length} / {system.nodes.length} nodes
+                      </span>
+                    </div>
+                    <div className="progress-bar" style={{ margin: '4px 0 8px' }}>
+                      <div
+                        className="progress-fill"
+                        style={{
+                          width: `${system.nodes.length > 0 ? (potentialAffected.length / system.nodes.length) * 100 : 0}%`,
+                          background: 'var(--risk-moderate)',
+                        }}
+                      />
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat-label">Criticality</span>
+                      <span
+                        className="stat-value"
+                        style={{ color: CRITICALITY_COLOR[criticality], textTransform: 'uppercase', fontSize: 11 }}
+                      >
+                        {criticality}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                      Estimated from the dependency graph — how many services would potentially be
+                      affected if this node failed. Not a measured result; run an experiment for that.
+                    </p>
+                  </div>
+
                   <button
                     className="btn btn-danger btn-sm"
                     style={{ marginTop: 10, width: '100%', justifyContent: 'center' }}
@@ -209,48 +306,57 @@ export function LeftSidebar() {
           </>
         )}
 
-        {/* ── Experiment panel ──────────────────────────────────────────── */}
+        {/* ── Experiment panel — templates for every backend-supported scenario ── */}
         {activeSidebarPanel === 'experiment' && (
-          <>
-            <div className="panel-section">
-              <p className="panel-section-title">Chaos Scenarios</p>
-              {[
-                { type: 'service_down',        label: 'Service Down',        desc: 'Bring a node completely offline',          icon: '🔴', active: true },
-                { type: 'latency_spike',        label: 'Latency Spike',       desc: 'Inject high latency into a node',          icon: '⏱', active: true },
-                { type: 'resource_exhaustion',  label: 'Resource Exhaustion', desc: 'Saturate CPU and memory resources',        icon: '📉', active: true },
-                { type: 'traffic_spike',        label: 'Traffic Spike',       desc: 'Simulate a sudden request-volume overload', icon: '📶', active: true },
-              ].map((s) => (
-                <div key={s.type} style={{
+          <div className="panel-section">
+            <p className="panel-section-title">Chaos Scenarios</p>
+            {EXPERIMENT_TYPES.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => {
+                  if (!selectedNodeId) return
+                  setPendingExperiment({
+                    system_id: system.id,
+                    target_node: selectedNodeId,
+                    type: s.value,
+                    duration_seconds: 30,
+                  })
+                  setPhase('configuring')
+                }}
+                disabled={!selectedNodeId}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
                   background: 'var(--bg-elevated)',
-                  border: `1px solid ${s.active ? 'var(--border)' : 'var(--border)'}`,
+                  border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-md)',
                   padding: '10px',
                   marginBottom: 8,
-                  opacity: s.active ? 1 : 0.5,
-                }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
-                    <span>{s.icon}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{s.label}</span>
-                    {!s.active && (
-                      <span style={{ fontSize: 9, color: 'var(--text-muted)', marginLeft: 'auto', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        soon
-                      </span>
-                    )}
-                  </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.desc}</p>
-                  {s.active && (
-                    <p style={{
-                      fontSize: 10, color: 'var(--text-muted)',
-                      marginTop: 4, fontStyle: 'italic',
-                      borderTop: '1px solid var(--border)', paddingTop: 4,
-                    }}>
-                      Select a node on the graph, then click "Run Experiment"
-                    </p>
-                  )}
+                  cursor: selectedNodeId ? 'pointer' : 'not-allowed',
+                  opacity: selectedNodeId ? 1 : 0.7,
+                  color: 'inherit',
+                  font: 'inherit',
+                }}
+              >
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                  <span>{s.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{s.label}</span>
                 </div>
-              ))}
-            </div>
-          </>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.simulates}</p>
+                <p style={{
+                  fontSize: 10, color: 'var(--text-muted)',
+                  marginTop: 4, fontStyle: 'italic',
+                  borderTop: '1px solid var(--border)', paddingTop: 4,
+                }}>
+                  {selectedNodeId
+                    ? `Click to configure this scenario for "${nodeName(selectedNodeId)}"`
+                    : 'Select a node on the graph first'}
+                </p>
+              </button>
+            ))}
+          </div>
         )}
 
         {/* ── Analysis panel ───────────────────────────────────────────── */}
@@ -295,35 +401,69 @@ export function LeftSidebar() {
           )
         )}
 
-        {/* ── AI panel ─────────────────────────────────────────────────── */}
+        {/* ── AI panel — observed data / AI interpretation / recommendation narrative ── */}
         {activeSidebarPanel === 'ai' && (
           lastResult ? (
-            <div className="panel-section">
-              <p className="panel-section-title">
-                AI Insights
-                <span style={{ marginLeft: 6, color: 'var(--accent)' }}>· AI interpretation</span>
-              </p>
-              <div style={{
-                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)', padding: 10, marginBottom: 8,
-              }}>
-                <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  {lastResult.ai_analysis.summary}
+            <>
+              <div className="panel-section">
+                <p className="panel-section-title" style={{ color: 'var(--color-healthy)' }}>Observed Data</p>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {lastResult.analysis.impact.affected_nodes}
+                  </strong>{' '}
+                  of <strong style={{ color: 'var(--text-primary)' }}>{lastResult.analysis.impact.total_nodes}</strong>{' '}
+                  nodes were affected ({(lastResult.analysis.impact.blast_radius * 100).toFixed(0)}% blast radius).
+                  Average recovery took{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {lastResult.analysis.recovery.average_recovery_seconds.toFixed(1)}s
+                  </strong>
+                  {lastResult.analysis.recovery.failed_recoveries.length > 0
+                    ? `, with ${lastResult.analysis.recovery.failed_recoveries.length} node(s) failing to recover.`
+                    : ', and every affected node recovered.'}
                 </p>
               </div>
-              <div className="stat-row">
-                <span className="stat-label">Provider</span>
-                <span className="stat-value" style={{ textTransform: 'uppercase', fontSize: 10 }}>
-                  {lastResult.ai_analysis.provider}
-                </span>
+
+              <div className="panel-section">
+                <p className="panel-section-title" style={{ color: 'var(--accent)' }}>AI Interpretation</p>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 8 }}>
+                  {lastResult.ai_analysis.root_cause}
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  {lastResult.ai_analysis.risk_interpretation}
+                </p>
               </div>
-              <div className="stat-row">
-                <span className="stat-label">Confidence</span>
-                <span className="stat-value">
-                  {(lastResult.ai_analysis.confidence * 100).toFixed(0)}%
-                </span>
+
+              <div className="panel-section">
+                <p className="panel-section-title" style={{ color: 'var(--risk-moderate)' }}>Recommendation</p>
+                {lastResult.analysis.recommendations.slice(0, 2).map((rec, i) => (
+                  <div key={i} className="rec-card">
+                    <span className="rec-card-title">{rec.title}</span>
+                    <p className="rec-card-desc">{rec.description}</p>
+                  </div>
+                ))}
               </div>
-            </div>
+
+              <div className="panel-section">
+                <p className="panel-section-title">Confidence</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="progress-bar" style={{ flex: 1 }}>
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${lastResult.ai_analysis.confidence * 100}%`, background: 'var(--accent)' }}
+                    />
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {(lastResult.ai_analysis.confidence * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="stat-row" style={{ marginTop: 6 }}>
+                  <span className="stat-label">Provider</span>
+                  <span className="stat-value" style={{ textTransform: 'uppercase', fontSize: 10 }}>
+                    {lastResult.ai_analysis.provider}
+                  </span>
+                </div>
+              </div>
+            </>
           ) : (
             <div className="empty-state">
               <span className="empty-icon">🤖</span>
@@ -336,6 +476,28 @@ export function LeftSidebar() {
         {activeSidebarPanel === 'history' && (
           experimentHistory.length > 0 ? (
             <div>
+              {experimentHistory.length >= 2 && (() => {
+                const seq = [...experimentHistory].slice(0, 6).reverse()
+                const delta = seq[seq.length - 1].resilience_score.score - seq[0].resilience_score.score
+                return (
+                  <div className="panel-section">
+                    <p className="panel-section-title">Resilience Trend</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {seq.map((r, i) => (
+                        <span key={r.run.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {i > 0 && <span style={{ color: 'var(--text-muted)' }}>→</span>}
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                            {r.resilience_score.score.toFixed(0)}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                    <p style={{ fontSize: 11, marginTop: 6, color: delta >= 0 ? 'var(--color-healthy)' : 'var(--color-failed)' }}>
+                      {delta >= 0 ? '+' : ''}{delta.toFixed(0)} over the last {seq.length} runs
+                    </p>
+                  </div>
+                )
+              })()}
               <div style={{ padding: '10px 14px 4px' }}>
                 <input
                   type="search"
