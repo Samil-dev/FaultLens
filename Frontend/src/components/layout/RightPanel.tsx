@@ -1,6 +1,7 @@
 import { useStore } from '../../store/experimentStore'
 import { StatusBadge } from '../ui/StatusBadge'
 import { ScoreRing } from '../ui/ScoreRing'
+import { NextExperimentSuggestion } from '../panels/NextExperimentSuggestion'
 import type { Recommendation } from '../../types/api'
 import { EXPERIMENT_TYPE_LABEL } from '../../utils/format'
 
@@ -105,6 +106,47 @@ export function RightPanel() {
           </div>
         </div>
 
+        {/* ── Failure propagation path ── */}
+        {run.affected_nodes.length > 0 && (
+          <div className="panel-section">
+            <p className="panel-section-title">Failure Propagation Path</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {[run.target_node, ...run.affected_nodes].map((nodeId, i) => {
+                const isOrigin = i === 0
+                const node = system.nodes.find((n) => n.id === nodeId)
+                const recovery = run.recoveries.find((r) => r.node_id === nodeId)
+                const recovered = recovery?.recovery_status === 'recovered'
+                const stepColor = isOrigin
+                  ? (targetFailed ? 'var(--color-failed)' : 'var(--color-degraded)')
+                  : 'var(--color-degraded)'
+                return (
+                  <div key={nodeId} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: stepColor, flexShrink: 0, marginTop: 4 }} />
+                      {i < run.affected_nodes.length && (
+                        <span style={{ width: 1, flex: 1, minHeight: 18, background: 'var(--border)' }} />
+                      )}
+                    </div>
+                    <div style={{ paddingBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {i + 1}. {node?.name ?? nodeId}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                        {isOrigin ? 'Origin' : 'Affected'}
+                        {recovery && (
+                          <span style={{ color: recovered ? 'var(--color-healthy)' : 'var(--color-failed)' }}>
+                            {' · '}{recovered ? `recovered in ${recovery.recovery_time_seconds?.toFixed(1)}s` : 'did not recover'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── Impact ── */}
         <div className="panel-section">
           <p className="panel-section-title">
@@ -115,6 +157,8 @@ export function RightPanel() {
           <div className="stat-row">
             <span className="stat-label">Blast radius</span>
             <span className="stat-value">
+              {analysis.impact.affected_nodes} / {analysis.impact.total_nodes} nodes
+              {' · '}
               {(analysis.impact.blast_radius * 100).toFixed(0)}%
             </span>
           </div>
@@ -325,9 +369,12 @@ export function RightPanel() {
           </div>
         )}
 
-        {/* ── Simulation events ── */}
+        {/* ── Experiment timeline ── */}
         <div className="panel-section">
-          <p className="panel-section-title">Simulation Events</p>
+          <p className="panel-section-title">Experiment Timeline</p>
+          <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: -6, marginBottom: 8 }}>
+            Failure injection order, then recovery order (by measured recovery time).
+          </p>
           <div className="event-log">
             {events.map((evt) => {
               const color = evt.event_type === 'failure_injected'
@@ -356,8 +403,35 @@ export function RightPanel() {
                 </div>
               )
             })}
+            {[...run.recoveries]
+              .sort((a, b) => (a.recovery_time_seconds ?? Infinity) - (b.recovery_time_seconds ?? Infinity))
+              .map((rec) => {
+                const node = system.nodes.find((n) => n.id === rec.node_id)
+                const recovered = rec.recovery_status === 'recovered'
+                return (
+                  <div key={`recovery-${rec.node_id}`} className="event-item">
+                    <span className="event-type-dot" style={{ background: recovered ? 'var(--color-healthy)' : 'var(--color-failed)' }} />
+                    <div>
+                      <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                        {node?.name ?? rec.node_id}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>
+                        {recovered ? 'recovered' : 'failed to recover'}
+                      </span>
+                      {rec.recovery_time_seconds !== null && (
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          T+{rec.recovery_time_seconds.toFixed(1)}s
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
           </div>
         </div>
+
+        {/* ── Recommended next experiment ── */}
+        <NextExperimentSuggestion analysis={analysis} />
       </div>
     </aside>
   )
