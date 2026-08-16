@@ -8,7 +8,7 @@ export type ExperimentType = 'service_down' | 'latency_spike' | 'resource_exhaus
 export type DependencyType = 'depends_on' | 'communicates_with'
 export type RecommendationPriority = 'low' | 'medium' | 'high'
 export type EventType = 'failure_injected' | 'node_degraded' | 'node_failed' | 'node_recovered'
-export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancellled'
+export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 // ─── System model ─────────────────────────────────────────────────────────────
 
@@ -166,7 +166,7 @@ export interface ExperimentApiResponse {
 }
 
 export interface HealthResponse {
-  succes: boolean
+  success: boolean
   data: {
     status: string
     services: string
