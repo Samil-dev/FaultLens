@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store/experimentStore'
 import { runExperiment } from '../../services/api'
 import type { ExperimentType } from '../../types/api'
@@ -26,10 +26,28 @@ export function ExperimentModal() {
   const [expType, setExpType] = useState<ExperimentType>('service_down')
   const [duration, setDuration] = useState(30)
   const [error, setError] = useState<string | null>(null)
+  const selectRef = useRef<HTMLSelectElement>(null)
+  const isOpen = phase === 'configuring' && !!pendingExperiment
 
-  if (phase !== 'configuring' || !pendingExperiment) return null
+  // Autofocus the first control when the modal opens.
+  useEffect(() => {
+    if (isOpen) selectRef.current?.focus()
+  }, [isOpen])
 
-  const targetNodeId = pendingExperiment.target_node!
+  // Close on Escape, unless an experiment is actively running.
+  useEffect(() => {
+    if (!isOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && phase === 'configuring') close()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, phase])
+
+  if (!isOpen) return null
+
+  const targetNodeId = pendingExperiment!.target_node!
   const targetNode = system.nodes.find((n) => n.id === targetNodeId)
 
   function close() {
@@ -119,8 +137,8 @@ export function ExperimentModal() {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && close()}>
-      <div className="modal-box">
-        <div className="modal-title">
+      <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="experiment-modal-title">
+        <div className="modal-title" id="experiment-modal-title">
           ⚡ Run Chaos Experiment
         </div>
 
@@ -149,8 +167,10 @@ export function ExperimentModal() {
 
         {/* Experiment type */}
         <div className="form-group">
-          <label className="form-label">Failure Scenario</label>
+          <label className="form-label" htmlFor="experiment-type-select">Failure Scenario</label>
           <select
+            id="experiment-type-select"
+            ref={selectRef}
             className="form-select"
             value={expType}
             onChange={(e) => setExpType(e.target.value as ExperimentType)}
@@ -165,8 +185,9 @@ export function ExperimentModal() {
 
         {/* Duration */}
         <div className="form-group">
-          <label className="form-label">Duration (seconds)</label>
+          <label className="form-label" htmlFor="experiment-duration-input">Duration (seconds)</label>
           <input
+            id="experiment-duration-input"
             className="form-input"
             type="number"
             min={1}

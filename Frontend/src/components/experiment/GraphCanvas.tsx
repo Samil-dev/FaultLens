@@ -68,7 +68,7 @@ export function GraphCanvas() {
           backdropFilter: 'blur(4px)',
           pointerEvents: 'none',
         }}>
-          Experiment complete — see the Resilience Panel →
+          Simulation complete — see the Resilience Panel →
         </div>
       )}
 

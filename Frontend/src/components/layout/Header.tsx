@@ -106,7 +106,7 @@ export function Header() {
           </span>
         )}
         {phase === 'done' && (
-          <span style={{ fontSize: 11, color: 'var(--color-healthy)' }}>✓ Experiment complete</span>
+          <span style={{ fontSize: 11, color: 'var(--color-healthy)' }}>✓ Simulation complete</span>
         )}
       </div>
 
