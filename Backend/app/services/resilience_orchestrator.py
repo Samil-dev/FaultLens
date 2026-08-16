@@ -11,7 +11,7 @@ def run_chaos_experiment(
     experiment: dict,
 ) -> dict:
     """
-    Runs a simulated chaos experiment in CodeTwin.
+    Runs a simulated chaos experiment in FaultLens.
 
     Returns the complete deterministic result:
     simulation run, events, metric comparisons,

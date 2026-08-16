@@ -20,7 +20,7 @@ from app.mcp.tools import (
 
 
 mcp = MCPServer(
-    "CodeTwin ChaosLab",
+    "FaultLens",
 )
 
 
@@ -30,7 +30,7 @@ def chaos_run_experiment(
     experiment: dict,
 ) -> dict:
     """
-    Run a simulated chaos experiment in CodeTwin.
+    Run a simulated chaos experiment in FaultLens.
 
     Returns:
     - simulation run

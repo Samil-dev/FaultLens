@@ -1,4 +1,4 @@
-"""Small SQLite-backed storage for local CodeTwin MVP data."""
+"""Small SQLite-backed storage for local FaultLens data."""
 
 import json
 import os

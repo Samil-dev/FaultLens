@@ -5,7 +5,7 @@ from app.models.system import System
 
 class DependencyGraph:
     """
-    Represents the dependency relationships of a CodeTwin system.
+    Represents the dependency relationships of a FaultLens system.
     """
 
     def __init__(self, system: System):

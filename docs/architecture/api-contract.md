@@ -1,4 +1,4 @@
-# CodeTwin + ChaosLab + AI — API Contract
+# FaultLens — API Contract
 
 > Version: 0.1
 > Status: Draft
@@ -9,7 +9,7 @@
 
 # 1. Purpose
 
-This document defines the communication contract between the CodeTwin backend and frontend.
+This document defines the communication contract between the FaultLens backend and frontend.
 
 The goal is to establish:
 
@@ -92,7 +92,7 @@ POST /api/projects
 Request:
 {
   "name": "E-Commerce Demo",
-  "description": "Demo system for CodeTwin"
+  "description": "Demo system for FaultLens"
 }
 
 Response:
@@ -101,7 +101,7 @@ Response:
   "data": {
     "id": "project-001",
     "name": "E-Commerce Demo",
-    "description": "Demo system for CodeTwin",
+    "description": "Demo system for FaultLens",
     "created_at": "2026-08-09T12:00:00Z"
   },
   "error": null
@@ -119,7 +119,7 @@ Response:
     {
       "id": "project-001",
       "name": "E-Commerce Demo",
-      "description": "Demo system for CodeTwin"
+      "description": "Demo system for FaultLens"
     }
   ],
   "error": null
@@ -645,6 +645,6 @@ Current status:
 - Backend: Not implemented
 - Frontend: Not implemented
 - Digital Twin: Not implemented
-- ChaosLab: Not implemented
+- Chaos Engine: Not implemented
 - AI Analyzer: Not implemented
 - WebSocket: Planned

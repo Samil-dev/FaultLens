@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for the FaultLens / CodeTwin backend test suite.
+Shared pytest fixtures for the FaultLens backend test suite.
 
 All fixtures build real production objects — no mocking of business logic.
 The TestClient is backed by the real FastAPI app; only the SQLite database

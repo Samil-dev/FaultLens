@@ -1,4 +1,4 @@
-# CodeTwin + ChaosLab + AI - Architecture Overview.
+# FaultLens — Architecture Overview.
 
 > Version: 0.1 
 > Status: In Development
@@ -8,7 +8,7 @@
 ---
 ## 1. Project Overview
 
-CodeTwin + ChaosLab + IA is an experimental platform that combines:
+FaultLens is an experimental platform that combines:
 
 - Digital Twins
 - Chaos Engineering
@@ -43,7 +43,7 @@ Compare BEFORE vs AFTER
 --
 ## 2. Main Objective
 
-The main objective of CodeTwin is to provide a visual and intelligent environment where developeres can understand how their system behave under failure conditions.
+The main objective of FaultLens is to provide a visual and intelligent environment where developeres can understand how their system behave under failure conditions.
 
 The platform should answer questions such as:
 
@@ -75,8 +75,9 @@ The system is divided into five main components:
            │
      ┌─────┼─────┐
      ▼     ▼     ▼
- CodeTwin ChaosLab AI
- Engine   Engine Analyzer
+  Digital   Chaos     AI
+   Twin     Engine  Analyzer
+  Engine
      │     │     │
      └─────┼─────┘
            ▼
@@ -139,9 +140,9 @@ Technologies:
 Samil — Backend/Core Lead
 
 --
-## 6. CodeTwin Engine
+## 6. Digital Twin Engine
 
-The CodeTwin Engine is responsible for representing a software system as a Dygital Twin.
+The Digital Twin Engine is responsible for representing a software system as a digital twin.
 
 A Digital Twin is represented as a graph containing:
 
@@ -187,9 +188,9 @@ Initial node types:
 - external
 
 --
-## 7. ChaosLab Engine
+## 7. Chaos Engine
 
-ChaosLab is responsible for creating controlled failure scenarios.
+The Chaos Engine is responsible for creating controlled failure scenarios.
 
 The initial version will support a limited number of experiment types.
 
@@ -473,8 +474,8 @@ Responsible for:
 
 Python
 FastAPI
-CodeTwin Engine
-ChaosLab Engine
+Digital Twin Engine
+Chaos Engine
 Simulation Engine
 Failure Propagation
 Database
@@ -608,7 +609,7 @@ Next objectives:
 --
 ## 21. Long-Term Vision
 
-The long-term vision is to evolve CodeTwin into an intelligent resilience platform capable of:
+The long-term vision is to evolve FaultLens into an intelligent resilience platform capable of:
 
 - Automatically discovering system architectures
 - Creating Digital Twins from real projects

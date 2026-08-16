@@ -8,7 +8,7 @@ def health_check():
         "success": True,
         "data": {
             "status": "healthy",
-            "services" : "codetwin-backend"
+            "services" : "faultlens-backend"
         },
         "error": None
     }

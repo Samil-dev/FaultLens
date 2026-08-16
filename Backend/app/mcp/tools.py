@@ -1,5 +1,5 @@
 """
-MCP tool entry points for CodeTwin ChaosLab.
+MCP tool entry points for FaultLens.
 
 The actual business logic lives in app.services.resilience_orchestrator so it
 has a single implementation shared by both the MCP server and (potentially)

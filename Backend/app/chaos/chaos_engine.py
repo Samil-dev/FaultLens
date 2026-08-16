@@ -9,7 +9,7 @@ from app.models.system import System
 
 class ChaosEngine:
     """
-    Core simulation engine for FaultLens ChaosLab
+    Core simulation engine for FaultLens.
 
     The engine performs simulated chaos experiments
     without affecting real infrastructure.
