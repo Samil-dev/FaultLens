@@ -61,6 +61,8 @@ export interface Recovery {
 export interface SimulationRun {
   id: string
   experiment_id: string
+  type: ExperimentType
+  target_node: string
   status: SimulationStatus
   started_at: string | null
   finished_at: string | null
