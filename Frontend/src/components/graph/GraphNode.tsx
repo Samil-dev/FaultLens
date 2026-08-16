@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react'
 import type { NodeStatus } from '../../types/api'
 
 interface Props {
@@ -50,12 +51,26 @@ export function GraphNode({
   const rx = x - NODE_W / 2
   const ry = y - NODE_H / 2
 
+  function handleKeyDown(e: KeyboardEvent<SVGGElement>) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick(id)
+    }
+  }
+
   return (
     <g
       className="graph-node-group"
       transform={`translate(${rx},${ry})`}
       onClick={() => onClick(id)}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={`${label}, ${nodeType}, status ${status}`}
     >
+      <title>{`${label} (${nodeType}) — ${status}`}</title>
+
       {/* Pulse ring when animating */}
       {animating && (
         <circle
