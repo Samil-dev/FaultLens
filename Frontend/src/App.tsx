@@ -4,6 +4,7 @@ import { LeftSidebar } from './components/layout/LeftSidebar'
 import { RightPanel } from './components/layout/RightPanel'
 import { GraphCanvas } from './components/experiment/GraphCanvas'
 import { ExperimentModal } from './components/experiment/ExperimentModal'
+import { ImportSystemModal } from './components/system/ImportSystemModal'
 import { fetchExperimentHistory, fetchSystems } from './services/api'
 import { useStore } from './store/experimentStore'
 
@@ -34,6 +35,7 @@ export default function App() {
       <GraphCanvas />
       <RightPanel />
       <ExperimentModal />
+      <ImportSystemModal />
     </div>
   )
 }
