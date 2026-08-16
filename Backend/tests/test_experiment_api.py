@@ -25,10 +25,9 @@ class TestHealthEndpoint:
         response = test_client.get("/api/health")
         assert response.status_code == 200
 
-    def test_body_has_succes_true(self, test_client):
-        # Note: the key is "succes" (one 's') — matches the production response
+    def test_body_has_success_true(self, test_client):
         body = test_client.get("/api/health").json()
-        assert body["succes"] is True
+        assert body["success"] is True
 
     def test_body_has_status_healthy(self, test_client):
         body = test_client.get("/api/health").json()

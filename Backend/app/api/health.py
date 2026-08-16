@@ -5,7 +5,7 @@ router = APIRouter()
 @router.get("/health")
 def health_check():
     return {
-        "succes": True,
+        "success": True,
         "data": {
             "status": "healthy",
             "services" : "codetwin-backend"

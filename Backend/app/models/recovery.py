@@ -23,6 +23,6 @@ class Recovery(BaseModel):
     #Tiempo que tardo el nodo en recuperarse.
     recovery_time_seconds: float | None = Field(
         default=None,
-        get=0,
+        ge=0,
         description="Time required for the node to recover in seconds"
     )

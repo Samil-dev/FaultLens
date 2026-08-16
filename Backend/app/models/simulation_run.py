@@ -24,7 +24,7 @@ class SimulationRun(BaseModel):
         "running",
         "completed",
         "failed",
-        "cancellled"
+        "cancelled"
     ] = Field(
         default="pending",
         description="Current simulation status"

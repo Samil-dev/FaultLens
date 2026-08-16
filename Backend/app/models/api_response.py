@@ -17,7 +17,7 @@ class ApiError(BaseModel):
 
 class ApiResponse(BaseModel):
     #Indica si la operacion termino correctamente.
-    succes: bool = Field(
+    success: bool = Field(
         ...,
         description="Wether the operation was successful"
     )
