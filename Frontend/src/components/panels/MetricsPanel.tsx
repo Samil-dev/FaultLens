@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { useStore } from '../../store/experimentStore'
 import type { MetricComparison } from '../../types/api'
+import { EXPERIMENT_TYPE_LABEL } from '../../utils/format'
 
 // Mirrors the fixed "healthy" baseline in Backend/app/services/metrics_service.py
 // (get_node_metrics, simulated_status == "healthy"). Every before/after snapshot
@@ -60,9 +61,17 @@ export function MetricsPanel() {
   const impacted = rows.filter((r) => Math.abs(r.delta) > 0.01)
   const shown = impacted.length > 0 ? impacted : rows.slice(0, 5)
 
+  const targetName = system.nodes.find((n) => n.id === lastResult.run.target_node)?.name
+    ?? lastResult.run.target_node
+
   return (
     <div className="panel-section">
       <p className="panel-section-title">Before / After Metrics</p>
+      <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
+        {EXPERIMENT_TYPE_LABEL[lastResult.run.type] ?? lastResult.run.type} on <strong style={{ color: 'var(--text-primary)' }}>{targetName}</strong>
+        {' · Resilience '}
+        <strong style={{ color: 'var(--text-primary)' }}>{lastResult.resilience_score.score}</strong>
+      </p>
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
         {METRICS.map((m) => (
@@ -76,8 +85,9 @@ export function MetricsPanel() {
               color: metric === m.key ? 'var(--accent)' : 'var(--text-secondary)',
               background: metric === m.key ? 'var(--accent-dim)' : 'transparent',
             }}
+            aria-pressed={metric === m.key}
           >
-            {m.label}
+            {m.label} <span style={{ opacity: 0.6 }}>({m.unit})</span>
           </button>
         ))}
       </div>
