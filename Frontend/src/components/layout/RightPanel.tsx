@@ -2,6 +2,7 @@ import { useStore } from '../../store/experimentStore'
 import { StatusBadge } from '../ui/StatusBadge'
 import { ScoreRing } from '../ui/ScoreRing'
 import type { Recommendation } from '../../types/api'
+import { EXPERIMENT_TYPE_LABEL } from '../../utils/format'
 
 const PRIORITY_COLOR: Record<string, string> = {
   high:   'var(--risk-high)',
@@ -51,10 +52,10 @@ export function RightPanel() {
 
   if (!lastResult) return null
 
-  const { resilience_score, analysis, ai_analysis, comparisons, events } = lastResult
+  const { resilience_score, analysis, ai_analysis, comparisons, events, run } = lastResult
 
-  const targetNodeId = events.find((e) => e.event_type === 'failure_injected')?.node_id
-  const targetNode = system.nodes.find((n) => n.id === targetNodeId)
+  const targetNode = system.nodes.find((n) => n.id === run.target_node)
+  const targetFailed = run.type === 'service_down'
 
   return (
     <aside className="app-right-panel">
@@ -88,22 +89,28 @@ export function RightPanel() {
         </div>
 
         {/* ── Experiment target ── */}
-        {targetNode && (
-          <div className="panel-section">
-            <p className="panel-section-title">Experiment Target</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 600 }}>{targetNode.name}</span>
-              <StatusBadge variant="failed" />
-            </div>
-            <p style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: 2 }}>
-              {targetNode.node_type}
+        <div className="panel-section">
+          <p className="panel-section-title">Experiment Target</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>{targetNode?.name ?? run.target_node}</span>
+            <StatusBadge variant={targetFailed ? 'failed' : 'degraded'} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+            <p style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              {targetNode?.node_type ?? 'unknown type'}
+            </p>
+            <p style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+              {EXPERIMENT_TYPE_LABEL[run.type] ?? run.type}
             </p>
           </div>
-        )}
+        </div>
 
         {/* ── Impact ── */}
         <div className="panel-section">
-          <p className="panel-section-title">Impact Analysis</p>
+          <p className="panel-section-title">
+            Impact Analysis
+            <span style={{ marginLeft: 6, color: 'var(--color-healthy)' }}>· Observed</span>
+          </p>
 
           <div className="stat-row">
             <span className="stat-label">Blast radius</span>
@@ -159,7 +166,10 @@ export function RightPanel() {
 
         {/* ── Recovery ── */}
         <div className="panel-section">
-          <p className="panel-section-title">Recovery</p>
+          <p className="panel-section-title">
+            Recovery
+            <span style={{ marginLeft: 6, color: 'var(--color-healthy)' }}>· Observed</span>
+          </p>
           <div className="stat-row">
             <span className="stat-label">Recovered</span>
             <span className="stat-value" style={{ color: 'var(--color-healthy)' }}>
@@ -190,7 +200,10 @@ export function RightPanel() {
 
         {/* ── Risk ── */}
         <div className="panel-section">
-          <p className="panel-section-title">Risk Assessment</p>
+          <p className="panel-section-title">
+            Risk Assessment
+            <span style={{ marginLeft: 6, color: 'var(--color-healthy)' }}>· Observed</span>
+          </p>
           <StatusBadge variant={analysis.risk.level} label={`${analysis.risk.level} risk`} />
           <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.6 }}>
             {analysis.risk.reason}
@@ -201,6 +214,7 @@ export function RightPanel() {
         <div className="panel-section">
           <p className="panel-section-title" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span>🤖</span> AI Analysis
+            <span style={{ color: 'var(--accent)' }}>· AI interpretation</span>
             <span style={{
               marginLeft: 'auto', fontSize: 9, padding: '1px 5px',
               background: 'var(--bg-elevated)', borderRadius: 3,
@@ -249,7 +263,10 @@ export function RightPanel() {
 
         {/* ── Recommendations ── */}
         <div className="panel-section">
-          <p className="panel-section-title">Recommendations</p>
+          <p className="panel-section-title">
+            Recommendations
+            <span style={{ marginLeft: 6, color: 'var(--risk-moderate)' }}>· Recommendation</span>
+          </p>
           {analysis.recommendations.map((rec: Recommendation, i: number) => (
             <div key={i} className="rec-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -270,6 +287,7 @@ export function RightPanel() {
         {comparisons.length > 0 && (
           <div className="panel-section">
             <p className="panel-section-title">Metric Comparisons</p>
+            <div className="table-scroll">
             <table className="metric-table">
               <thead>
                 <tr>
@@ -285,7 +303,7 @@ export function RightPanel() {
                   const node = system.nodes.find((n) => n.id === c.node_id)
                   return (
                     <tr key={c.node_id}>
-                      <td style={{ color: 'var(--text-primary)' }}>{node?.name ?? c.node_id}</td>
+                      <td className="metric-table-name" style={{ color: 'var(--text-primary)' }} title={node?.name ?? c.node_id}>{node?.name ?? c.node_id}</td>
                       <td className={c.cpu_usage_delta !== 0 ? 'delta-positive' : 'delta-zero'}>
                         {c.cpu_usage_delta > 0 ? '+' : ''}{c.cpu_usage_delta.toFixed(1)}
                       </td>
@@ -303,6 +321,7 @@ export function RightPanel() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
