@@ -132,6 +132,9 @@ export function ComparisonPanel() {
         const bestScore = Math.max(...runs.map((r) => r.resilience_score.score))
         const bestBlastRadius = Math.min(...runs.map((r) => r.analysis.impact.blast_radius))
         const bestRecovery = Math.min(...runs.map((r) => r.analysis.recovery.average_recovery_seconds))
+        const mostSevere = runs.reduce((worst, r) => (r.resilience_score.score < worst.resilience_score.score ? r : worst), runs[0])
+        const mostSevereTarget = system.nodes.find((n) => n.id === mostSevere.run.target_node)?.name ?? mostSevere.run.target_node
+        const scenarioLetter = (i: number) => String.fromCharCode(65 + i)
 
         return (
         <div className="panel-section">
@@ -145,13 +148,28 @@ export function ComparisonPanel() {
               ✕ Clear
             </button>
           </div>
+
+          {runs.length > 1 && bestScore !== mostSevere.resilience_score.score && (
+            <div style={{
+              background: 'rgba(248,81,73,0.08)', border: '1px solid rgba(248,81,73,0.2)',
+              borderRadius: 'var(--radius-md)', padding: '8px 10px', marginBottom: 10,
+            }}>
+              <p style={{ fontSize: 11, color: 'var(--color-failed)', lineHeight: 1.5 }}>
+                ⚠ <strong>Scenario {scenarioLetter(runs.indexOf(mostSevere))}</strong> ({mostSevereTarget}) is the most
+                severe — lowest resilience score ({mostSevere.resilience_score.score}).
+              </p>
+            </div>
+          )}
+
           {runs.length > 1 && (
             <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 10 }}>
               "✓ best" marks the safest score, smallest blast radius, and fastest recovery among the compared runs.
             </p>
           )}
 
-          {runs.map((run, idx) => (
+          {runs.map((run, idx) => {
+            const targetName = system.nodes.find((n) => n.id === run.run.target_node)?.name ?? run.run.target_node
+            return (
             <div key={run.run.id} style={{
               background: 'var(--bg-elevated)',
               border: '1px solid var(--border)',
@@ -161,12 +179,12 @@ export function ComparisonPanel() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Run {idx + 1}
+                  Scenario {scenarioLetter(idx)}
                 </span>
                 <StatusBadge variant={run.analysis.risk.level} />
               </div>
               <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 6 }}>
-                {EXPERIMENT_TYPE_LABEL[run.run.type] ?? run.run.type} on {run.run.target_node}
+                {targetName} · {EXPERIMENT_TYPE_LABEL[run.run.type] ?? run.run.type}
               </p>
               <div className="stat-row">
                 <span className="stat-label">Score</span>
@@ -199,7 +217,8 @@ export function ComparisonPanel() {
                 {run.ai_analysis.summary.slice(0, 120)}…
               </p>
             </div>
-          ))}
+            )
+          })}
         </div>
         )
       })()}
