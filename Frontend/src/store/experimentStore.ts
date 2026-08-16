@@ -94,6 +94,10 @@ interface ExperimentStore {
   // ── Active sidebar panel ──────────────────────────────────────────────────────
   activeSidebarPanel: string
   setActiveSidebarPanel: (panel: string) => void
+
+  // ── System import modal ──────────────────────────────────────────────────────
+  systemImportOpen: boolean
+  setSystemImportOpen: (open: boolean) => void
 }
 
 function buildDefaultNodeStates(system: System): Record<string, NodeVisualState> {
@@ -153,4 +157,8 @@ export const useStore = create<ExperimentStore>((set) => ({
   // ── Sidebar ───────────────────────────────────────────────────────────────────
   activeSidebarPanel: 'system',
   setActiveSidebarPanel: (activeSidebarPanel) => set({ activeSidebarPanel }),
+
+  // ── System import modal ──────────────────────────────────────────────────────
+  systemImportOpen: false,
+  setSystemImportOpen: (systemImportOpen) => set({ systemImportOpen }),
 }))

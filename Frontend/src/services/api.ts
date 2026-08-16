@@ -3,6 +3,8 @@ import type {
   ExperimentApiResponse,
   ExperimentRunData,
   HealthResponse,
+  NextExperimentSuggestion,
+  ResilienceAnalysis,
   ScenarioComparison,
   ScenarioComparisonRequest,
   System,
@@ -34,8 +36,10 @@ export function fetchHealth(): Promise<HealthResponse> {
   return get<HealthResponse>('/health')
 }
 
-/** POST /api/systems/ — validate + echo a System definition */
-export function createSystem(system: System): Promise<{ success: boolean; data: System }> {
+/** POST /api/systems/ — validate + persist a System definition (imports/creates a digital twin) */
+export function createSystem(
+  system: System,
+): Promise<{ success: boolean; data: System; error: { message: string; code?: string } | null }> {
   return post('/systems/', system)
 }
 
@@ -57,4 +61,9 @@ export function fetchExperimentHistory(systemId: string): Promise<ExperimentRunD
 /** POST /api/experiments/compare — retrieve two to four runs for side-by-side comparison */
 export function compareExperiments(request: ScenarioComparisonRequest): Promise<ScenarioComparison> {
   return post<ScenarioComparisonRequest, ScenarioComparison>('/experiments/compare', request)
+}
+
+/** POST /api/experiments/suggest-next — suggest a logical follow-up experiment for a completed analysis */
+export function suggestNextExperiment(analysis: ResilienceAnalysis): Promise<NextExperimentSuggestion> {
+  return post<ResilienceAnalysis, NextExperimentSuggestion>('/experiments/suggest-next', analysis)
 }

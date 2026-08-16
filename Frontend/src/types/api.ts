@@ -175,3 +175,24 @@ export interface HealthResponse {
   }
   error: null
 }
+
+// ─── Next experiment suggestion ────────────────────────────────────────────────
+
+export type NextExperimentRecommendationType =
+  | 'recovery_validation'
+  | 'critical_dependency'
+  | 'high_risk_follow_up'
+  | 'no_immediate_follow_up'
+
+export interface SuggestedExperiment {
+  type: ExperimentType
+  target_node: string
+  duration_seconds: number
+}
+
+export interface NextExperimentSuggestion {
+  recommendation_type: NextExperimentRecommendationType
+  suggested_experiment: SuggestedExperiment | null
+  reason: string
+  risk_level: string
+}
