@@ -1,6 +1,7 @@
 import { useStore } from '../../store/experimentStore'
 import { StatusBadge } from '../ui/StatusBadge'
 import { ComparisonPanel } from '../panels/ComparisonPanel'
+import { MetricsPanel } from '../panels/MetricsPanel'
 
 const NAV_ITEMS = [
   { id: 'system',     icon: '⬡', label: 'Digital Twin'       },
@@ -316,13 +317,8 @@ export function LeftSidebar() {
         {/* ── Compare panel ─────────────────────────────────────────────── */}
         {activeSidebarPanel === 'compare' && <ComparisonPanel />}
 
-        {/* ── Metrics stub ─────────────────────────────────────────────── */}
-        {activeSidebarPanel === 'metrics' && (
-          <div className="empty-state">
-            <span className="empty-icon">📈</span>
-            <span>View metric comparisons in the right panel after running an experiment.</span>
-          </div>
-        )}
+        {/* ── Metrics panel ────────────────────────────────────────────── */}
+        {activeSidebarPanel === 'metrics' && <MetricsPanel />}
       </div>
     </aside>
   )
