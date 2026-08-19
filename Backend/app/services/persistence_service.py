@@ -1,12 +1,17 @@
 """Small SQLite-backed storage for local FaultLens data."""
 
 import json
+import logging
 import os
 import sqlite3
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from app.models.experiment_response import ExperimentRunData
 from app.models.system import System
+
+logger = logging.getLogger(__name__)
 
 
 class PersistenceService:
@@ -63,7 +68,19 @@ class PersistenceService:
             query, parameters = f"{query} WHERE system_id = ?", (system_id,)
         with self._connect() as connection:
             rows = connection.execute(f"{query} ORDER BY created_at DESC", parameters).fetchall()
-        return [ExperimentRunData.model_validate_json(row["payload"]) for row in rows]
+
+        results = []
+        for row in rows:
+            try:
+                results.append(ExperimentRunData.model_validate_json(row["payload"]))
+            except ValidationError:
+                # A row persisted under an older schema (e.g. before
+                # ai_analysis became an AIInsight wrapper) can't be
+                # deserialized against the current model. Skip it rather
+                # than failing the whole history request — the rest of a
+                # system's real history should still be usable.
+                logger.warning("Skipping experiment_history row that no longer matches the current schema")
+        return results
 
     def get_experiment(self, run_id: str) -> ExperimentRunData | None:
         with self._connect() as connection:
@@ -72,4 +89,8 @@ class PersistenceService:
             ).fetchone()
         if row is None:
             return None
-        return ExperimentRunData.model_validate_json(row["payload"])
+        try:
+            return ExperimentRunData.model_validate_json(row["payload"])
+        except ValidationError:
+            logger.warning("experiment_history row '%s' no longer matches the current schema", run_id)
+            return None
