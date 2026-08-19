@@ -190,6 +190,29 @@ export interface HealthResponse {
   error: null
 }
 
+// ─── MCP status ────────────────────────────────────────────────────────────────
+// Reflects only what's actually observable from the REST API: whether the MCP
+// server module is importable in this backend, and the most recent real MCP
+// tool invocation recorded (if any). There is no live "connected" boolean —
+// MCP runs over a separate stdio subprocess with no channel back to the
+// process serving this API, so a fabricated one would not be honest.
+
+export interface McpActivity {
+  tool_name: string
+  system_id: string | null
+  called_at: string
+  seconds_ago: number
+}
+
+export interface McpStatusResponse {
+  success: boolean
+  data: {
+    server_available: boolean
+    last_activity: McpActivity | null
+  }
+  error: null
+}
+
 // ─── Next experiment suggestion ────────────────────────────────────────────────
 
 export type NextExperimentRecommendationType =

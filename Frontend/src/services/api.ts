@@ -3,6 +3,7 @@ import type {
   ExperimentApiResponse,
   ExperimentRunData,
   HealthResponse,
+  McpStatusResponse,
   NextExperimentSuggestion,
   ResilienceAnalysis,
   ScenarioComparison,
@@ -63,6 +64,16 @@ async function post<TBody, TResponse>(path: string, body: TBody): Promise<TRespo
 /** GET /api/health — check backend connectivity */
 export function fetchHealth(): Promise<HealthResponse> {
   return get<HealthResponse>('/health')
+}
+
+/**
+ * GET /api/mcp/status — the real, observable state of FaultLens's MCP
+ * integration: whether the MCP server module is available in this backend,
+ * and the most recent real MCP tool call recorded (if any). There is no
+ * live "connected" flag — see types/api.ts's McpStatusResponse for why.
+ */
+export function fetchMcpStatus(): Promise<McpStatusResponse> {
+  return get<McpStatusResponse>('/mcp/status')
 }
 
 /** POST /api/systems/ — validate + persist a System definition (imports/creates a digital twin) */

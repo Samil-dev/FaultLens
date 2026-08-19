@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useStore } from '../../store/experimentStore'
 import { fetchHealth } from '../../services/api'
 import { EXPERIMENT_TYPE_LABEL } from '../../utils/format'
+import { IBMBobMcpStatus } from './IBMBobMcpStatus'
 
 export function Header() {
   const {
@@ -183,6 +184,9 @@ export function Header() {
           {connectionStatus}
         </span>
       </div>
+
+      {/* IBM Bob — real, observable MCP integration status (never a fabricated "Connected") */}
+      <IBMBobMcpStatus />
     </header>
   )
 }
