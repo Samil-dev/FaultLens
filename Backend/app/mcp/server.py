@@ -68,15 +68,20 @@ def chaos_get_resilience_analysis(
 def chaos_suggest_next_experiment(
     analysis: dict,
     last_target_node: str | None = None,
+    system_id: str | None = None,
 ) -> dict:
     """
-    Suggest the next experiment based on
-    deterministic resilience evidence.
+    Suggest the next experiment based on deterministic resilience evidence.
+
+    Pass `system_id` to make the suggestion consider this system's real
+    persisted experiment history (preferring untested nodes, varying the
+    experiment type) instead of just this one analysis in isolation.
     """
 
     return suggest_next_experiment(
         analysis=analysis,
         last_target_node=last_target_node,
+        system_id=system_id,
     )
 
 

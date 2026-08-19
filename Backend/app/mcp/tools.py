@@ -12,7 +12,7 @@ from app.services.persistence_service import PersistenceService
 from app.services.resilience_orchestrator import (
     get_resilience_analysis,
     run_chaos_experiment,
-    suggest_next_experiment,
+    suggest_next_experiment as _suggest_next_experiment,
 )
 
 __all__ = [
@@ -21,6 +21,31 @@ __all__ = [
     "run_chaos_experiment",
     "suggest_next_experiment",
 ]
+
+
+def suggest_next_experiment(
+    analysis: dict,
+    last_target_node: str | None = None,
+    system_id: str | None = None,
+) -> dict:
+    """
+    Thin wrapper around resilience_orchestrator.suggest_next_experiment that
+    additionally accepts `system_id` so an MCP caller can get a
+    history-aware suggestion (preferring never-tested nodes, varying the
+    experiment type) without having to fetch and pass the history itself —
+    mirrors POST /api/experiments/suggest-next's system_id query param.
+    """
+
+    history = (
+        [result.model_dump(mode="json") for result in PersistenceService().list_experiments(system_id)]
+        if system_id
+        else None
+    )
+    return _suggest_next_experiment(
+        analysis=analysis,
+        last_target_node=last_target_node,
+        history=history,
+    )
 
 
 def get_faultlens_context(system_id: str) -> dict:

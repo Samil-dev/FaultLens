@@ -652,6 +652,136 @@ class TestSuggestNextExperimentEndpoint:
         assert body["recommendation_type"] == "recovery_validation"
         assert body["suggested_experiment"]["target_node"] == "orders"
 
+    def test_system_id_for_a_system_with_no_history_behaves_like_analysis_only(
+        self, test_client
+    ):
+        """system_id is real data, not a required parameter — a system with
+        no persisted runs yet must fall back to exactly today's behavior."""
+        analysis = {
+            "impact": {
+                "blast_radius": 0.4, "affected_nodes": 2, "total_nodes": 10,
+                "critical_nodes": ["db-main", "orders"], "average_metric_impact": 0.6,
+            },
+            "recovery": {
+                "recovered_nodes": 2, "total_recovery_nodes": 2,
+                "average_recovery_seconds": 10.0, "max_recovery_seconds": 15.0,
+                "failed_recoveries": [],
+            },
+            "risk": {"level": "moderate", "reason": "Notable impact observed."},
+            "recommendations": [],
+        }
+        body = test_client.post(
+            "/api/experiments/suggest-next?system_id=sys-brand-new-no-history", json=analysis
+        ).json()
+        assert body["suggested_experiment"]["target_node"] == "db-main"
+        assert body["suggested_experiment"]["type"] == "service_down"
+
+    @staticmethod
+    def _small_system(system_id: str) -> dict:
+        """A tiny, uniquely-identified system so these tests' persisted
+        history can never be contaminated by other tests sharing demo_system
+        / sys-demo in the same session-scoped database."""
+        return {
+            "id": system_id,
+            "name": "Suggest-Next History Test System",
+            "nodes": [
+                {"id": "alpha", "name": "Alpha", "node_type": "service"},
+                {"id": "beta", "name": "Beta", "node_type": "service"},
+                {"id": "gamma", "name": "Gamma", "node_type": "service"},
+            ],
+            "dependencies": [],
+        }
+
+    def test_system_id_prefers_a_never_tested_critical_node_over_an_already_tested_one(
+        self, test_client
+    ):
+        """Real regression coverage for the history-aware upgrade: without
+        system_id, 'alpha' would always win (it's first in critical_nodes
+        and isn't last_target_node). With system_id, since 'alpha' was
+        already tested by a real prior run and 'beta' was not, 'beta' must
+        win — evidence the suggestion actually consulted persisted history,
+        not just the analysis payload."""
+        system_id = "sys-suggest-history-node-1"
+        system = self._small_system(system_id)
+
+        run_payload = {
+            "system": system,
+            "experiment": {
+                "id": "exp-suggest-history-alpha",
+                "system_id": system_id,
+                "target_node": "alpha",
+                "type": "service_down",
+                "duration_seconds": 30,
+            },
+        }
+        assert test_client.post("/api/experiments/run", json=run_payload).status_code == 200
+
+        analysis = {
+            "impact": {
+                "blast_radius": 0.4, "affected_nodes": 2, "total_nodes": 3,
+                "critical_nodes": ["alpha", "beta"], "average_metric_impact": 0.6,
+            },
+            "recovery": {
+                "recovered_nodes": 2, "total_recovery_nodes": 2,
+                "average_recovery_seconds": 10.0, "max_recovery_seconds": 15.0,
+                "failed_recoveries": [],
+            },
+            "risk": {"level": "moderate", "reason": "Notable impact observed."},
+            "recommendations": [],
+        }
+
+        without_history = test_client.post(
+            "/api/experiments/suggest-next?last_target_node=gamma", json=analysis
+        ).json()
+        assert without_history["suggested_experiment"]["target_node"] == "alpha"
+
+        with_history = test_client.post(
+            f"/api/experiments/suggest-next?last_target_node=gamma&system_id={system_id}",
+            json=analysis,
+        ).json()
+        assert with_history["suggested_experiment"]["target_node"] == "beta"
+
+    def test_system_id_varies_suggested_type_instead_of_always_service_down(
+        self, test_client
+    ):
+        """A node already tested with service_down should be suggested with
+        a different experiment type next, when system_id gives access to
+        that history — proven against a real persisted run, not a mock."""
+        system_id = "sys-suggest-history-node-2"
+        system = self._small_system(system_id)
+
+        run_payload = {
+            "system": system,
+            "experiment": {
+                "id": "exp-suggest-history-type",
+                "system_id": system_id,
+                "target_node": "alpha",
+                "type": "service_down",
+                "duration_seconds": 30,
+            },
+        }
+        assert test_client.post("/api/experiments/run", json=run_payload).status_code == 200
+
+        analysis = {
+            "impact": {
+                "blast_radius": 0.2, "affected_nodes": 1, "total_nodes": 3,
+                "critical_nodes": ["alpha"], "average_metric_impact": 0.3,
+            },
+            "recovery": {
+                "recovered_nodes": 1, "total_recovery_nodes": 1,
+                "average_recovery_seconds": 8.0, "max_recovery_seconds": 8.0,
+                "failed_recoveries": [],
+            },
+            "risk": {"level": "low", "reason": "Limited impact observed."},
+            "recommendations": [],
+        }
+
+        body = test_client.post(
+            f"/api/experiments/suggest-next?system_id={system_id}", json=analysis
+        ).json()
+        assert body["suggested_experiment"]["target_node"] == "alpha"
+        assert body["suggested_experiment"]["type"] != "service_down"
+
 
 # ── Scenario comparison endpoint ──────────────────────────────────────────────
 

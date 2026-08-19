@@ -117,7 +117,11 @@ def list_experiments(system_id: str | None = None):
 
 
 @router.post("/suggest-next", response_model=NextExperimentSuggestion)
-def suggest_next_experiment(analysis: ResilienceAnalysis, last_target_node: str | None = None):
+def suggest_next_experiment(
+    analysis: ResilienceAnalysis,
+    last_target_node: str | None = None,
+    system_id: str | None = None,
+):
     """
     Suggests a logical follow-up experiment based on a completed resilience
     analysis (recovery failures and critical dependencies take priority).
@@ -126,10 +130,23 @@ def suggest_next_experiment(analysis: ResilienceAnalysis, last_target_node: str 
     that produced this analysis already targeted. When supplied, it's used
     to avoid immediately re-suggesting the same node if the analysis offers
     a real alternative — see resilience_orchestrator.suggest_next_experiment.
+
+    `system_id` (optional query param) lets the suggestion consider this
+    system's real persisted experiment history: preferring a node that's
+    never been tested at all, and varying the suggested experiment type
+    instead of always defaulting to service_down. Omitting it preserves the
+    exact pre-existing analysis-only behavior.
     """
+    history = (
+        [result.model_dump(mode="json") for result in PersistenceService().list_experiments(system_id)]
+        if system_id
+        else None
+    )
+
     suggestion = compute_next_experiment_suggestion(
         analysis.model_dump(mode="json"),
         last_target_node=last_target_node,
+        history=history,
     )
     return NextExperimentSuggestion(**suggestion)
 

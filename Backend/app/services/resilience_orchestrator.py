@@ -81,35 +81,102 @@ def get_resilience_analysis(
     }
 
 
-def _first_other(candidates: list, exclude: str | None) -> str:
+# Mirrors the Literal["service_down", "latency_spike", "resource_exhaustion",
+# "traffic_spike"] used across the experiment models. Order matters: it's
+# the cycling order _next_experiment_type() walks through per target node.
+_EXPERIMENT_TYPES = ("service_down", "latency_spike", "resource_exhaustion", "traffic_spike")
+
+
+def _tested_types_by_node(history: list[dict]) -> dict[str, set[str]]:
     """
-    Returns the first candidate that isn't `exclude` (the node just tested),
-    so a follow-up suggestion doesn't just repeat the last experiment when a
-    genuine alternative is available. Falls back to the first candidate if
-    every one of them is the excluded node.
+    Maps each node id to the set of experiment types already run against it,
+    from a system's persisted experiment history. Empty dict when no history
+    is available — every helper below degrades to today's simpler behavior
+    in that case.
     """
 
+    tested: dict[str, set[str]] = {}
+    for result in history:
+        run = result.get("run", {})
+        node = run.get("target_node")
+        exp_type = run.get("type")
+        if node and exp_type:
+            tested.setdefault(node, set()).add(exp_type)
+    return tested
+
+
+def _best_candidate(
+    candidates: list,
+    last_target_node: str | None,
+    tested_nodes: set[str],
+) -> str:
+    """
+    Picks the best follow-up target from `candidates` (failed_recoveries or
+    critical_nodes, in the order the analysis returned them):
+
+    1. A candidate that has never been tested at all, other than the one
+       just tested — the strongest possible alternative, since it's real
+       unexplored evidence rather than a guess.
+    2. Any candidate other than the one just tested (today's behavior).
+    3. The first candidate, if every one of them is the node just tested.
+
+    `tested_nodes` is empty when no history is available, so step 1 never
+    finds a match and this degrades exactly to the pre-existing "any
+    candidate other than the last one" behavior.
+    """
+
+    never_tested = [c for c in candidates if c != last_target_node and c not in tested_nodes]
+    if never_tested:
+        return never_tested[0]
+
     for candidate in candidates:
-        if candidate != exclude:
+        if candidate != last_target_node:
             return candidate
 
     return candidates[0]
 
 
+def _next_experiment_type(target_node: str, tested_types_by_node: dict[str, set[str]]) -> str:
+    """
+    Picks the first experiment type in _EXPERIMENT_TYPES that hasn't already
+    been run against `target_node`, so a follow-up experiment exercises new
+    ground instead of always re-suggesting service_down. Falls back to
+    service_down (re-validation) once every type has been tried on this
+    node. With no history, this always returns "service_down" — identical
+    to the previous hardcoded behavior.
+    """
+
+    already_tested = tested_types_by_node.get(target_node, set())
+    for experiment_type in _EXPERIMENT_TYPES:
+        if experiment_type not in already_tested:
+            return experiment_type
+    return _EXPERIMENT_TYPES[0]
+
+
 def suggest_next_experiment(
     analysis: dict,
     last_target_node: str | None = None,
+    history: list[dict] | None = None,
 ) -> dict:
     """
     Suggests a logical next experiment based on
     the deterministic resilience analysis.
 
     `last_target_node`, when provided, is the node the experiment that
-    produced this analysis already targeted — used only to avoid
-    recommending an immediate repeat of the same experiment when the
-    analysis offers a real alternative. It never changes *which* branch of
-    the recommendation is chosen, only *which node within that branch* is
-    suggested.
+    produced this analysis already targeted — used to avoid recommending an
+    immediate repeat of the same experiment when the analysis offers a real
+    alternative.
+
+    `history`, when provided, is this system's past experiment results
+    (most recent first, as returned by PersistenceService.list_experiments)
+    — real, already-persisted data, never fabricated. It's used for two
+    things: preferring a target node that's never been tested at all over
+    one that merely isn't the immediate last target, and varying the
+    suggested experiment *type* to one not yet tried on that node instead
+    of always defaulting to service_down. Omitting it (or passing an empty
+    list) preserves the exact pre-existing behavior — this never changes
+    *which* recommendation branch is chosen, only which node/type within
+    that branch is suggested.
 
     This does not attempt to replace IBM Bob's reasoning.
     It provides structured evidence that Bob can use.
@@ -134,13 +201,17 @@ def suggest_next_experiment(
         "unknown",
     )
 
+    tested_types_by_node = _tested_types_by_node(history or [])
+    tested_nodes = set(tested_types_by_node.keys())
+
     if failed_recoveries:
-        target_node = _first_other(failed_recoveries, last_target_node)
+        target_node = _best_candidate(failed_recoveries, last_target_node, tested_nodes)
+        experiment_type = _next_experiment_type(target_node, tested_types_by_node)
 
         return {
             "recommendation_type": "recovery_validation",
             "suggested_experiment": {
-                "type": "service_down",
+                "type": experiment_type,
                 "target_node": target_node,
                 "duration_seconds": 30,
             },
@@ -155,7 +226,7 @@ def suggest_next_experiment(
         other_critical_nodes = [n for n in critical_nodes if n != last_target_node]
 
         if other_critical_nodes:
-            target_node = other_critical_nodes[0]
+            target_node = _best_candidate(critical_nodes, last_target_node, tested_nodes)
             reason = (
                 f"Node '{target_node}' was identified as a "
                 "critical component in the resilience analysis."
@@ -171,10 +242,12 @@ def suggest_next_experiment(
                 "resilience has improved."
             )
 
+        experiment_type = _next_experiment_type(target_node, tested_types_by_node)
+
         return {
             "recommendation_type": "critical_dependency",
             "suggested_experiment": {
-                "type": "service_down",
+                "type": experiment_type,
                 "target_node": target_node,
                 "duration_seconds": 30,
             },
