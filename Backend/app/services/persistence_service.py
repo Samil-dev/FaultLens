@@ -41,6 +41,15 @@ class PersistenceService:
             rows = connection.execute("SELECT payload FROM systems ORDER BY id").fetchall()
         return [System.model_validate_json(row["payload"]) for row in rows]
 
+    def get_system(self, system_id: str) -> System | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload FROM systems WHERE id = ?", (system_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return System.model_validate_json(row["payload"])
+
     def save_experiment(self, system_id: str, result: ExperimentRunData) -> None:
         with self._connect() as connection:
             connection.execute(

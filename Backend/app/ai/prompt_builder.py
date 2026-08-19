@@ -1,3 +1,4 @@
+from app.models.faultlens_context import FaultLensContext
 from app.models.resilience_analysis import ResilienceAnalysis
 
 
@@ -11,6 +12,7 @@ class PromptBuilder:
         analysis: ResilienceAnalysis,
         experiment_type: str = "service_down",
         target_node: str | None = None,
+        context: FaultLensContext | None = None,
     ) -> str:
         """
         Converts a resilience analysis into a structured prompt.
@@ -18,6 +20,12 @@ class PromptBuilder:
         experiment_type is included so that AI providers can tailor their
         response to the specific failure mode that was simulated.
         target_node is included so providers can reference the injection point.
+
+        `context`, when provided, is the full FaultLensContext for this
+        experiment (system topology + propagation path + history) — it's
+        prepended to the prompt so a provider reasons over the whole
+        workflow instead of this single analysis in isolation. Optional so
+        every existing call site keeps working unchanged.
         """
 
         critical_nodes = ", ".join(
@@ -36,9 +44,11 @@ class PromptBuilder:
 
         target_info = f"\nTarget node: {target_node}" if target_node else ""
 
+        context_section = self._build_context_section(context)
+
         return f"""
 You are analyzing the resilience of a software system after a chaos experiment.
-
+{context_section}
 Experiment type: {experiment_type}{target_info}
 
 Impact:
@@ -68,3 +78,37 @@ Provide:
 3. An interpretation of the risk.
 4. Additional recommendations.
 """.strip()
+
+    def _build_context_section(self, context: FaultLensContext | None) -> str:
+        """
+        Renders the system topology + propagation path + trend history from
+        a FaultLensContext as a short prose block. Returns an empty string
+        when no context was supplied, so `build()` degrades gracefully.
+        """
+
+        if context is None:
+            return ""
+
+        node_names = ", ".join(node.name for node in context.nodes) or "None"
+        propagation = (
+            " -> ".join(context.propagation_path)
+            if context.propagation_path
+            else "N/A (no propagation recorded yet)"
+        )
+
+        if context.history:
+            trend = "\n".join(
+                f"- {entry.created_at}: {entry.experiment_type} on '{entry.target_node}' "
+                f"-> resilience score {entry.resilience_score:.1f}, risk {entry.risk_level}"
+                for entry in context.history
+            )
+        else:
+            trend = "- No prior experiments recorded for this system."
+
+        return f"""
+System: {context.system_name} ({len(context.nodes)} nodes: {node_names})
+Propagation path (origin -> affected, in order): {propagation}
+
+Recent experiment history for this system:
+{trend}
+"""

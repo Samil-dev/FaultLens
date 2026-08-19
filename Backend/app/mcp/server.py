@@ -13,6 +13,7 @@ if str(BACKEND_DIR) not in sys.path:
 from mcp.server import MCPServer
 
 from app.mcp.tools import (
+    get_faultlens_context,
     get_resilience_analysis,
     run_chaos_experiment,
     suggest_next_experiment,
@@ -66,6 +67,7 @@ def chaos_get_resilience_analysis(
 @mcp.tool()
 def chaos_suggest_next_experiment(
     analysis: dict,
+    last_target_node: str | None = None,
 ) -> dict:
     """
     Suggest the next experiment based on
@@ -74,6 +76,26 @@ def chaos_suggest_next_experiment(
 
     return suggest_next_experiment(
         analysis=analysis,
+        last_target_node=last_target_node,
+    )
+
+
+@mcp.tool()
+def faultlens_get_context(
+    system_id: str,
+) -> dict:
+    """
+    Get the structured FaultLens context for a system: its architecture,
+    the most recent chaos experiment's propagation and resilience analysis,
+    and a summary of its experiment history.
+
+    This is the recommended entry point for Bob to understand a FaultLens
+    system before explaining a result or recommending a next step — it
+    carries the whole workflow's evidence, not just one isolated result.
+    """
+
+    return get_faultlens_context(
+        system_id=system_id,
     )
 
 

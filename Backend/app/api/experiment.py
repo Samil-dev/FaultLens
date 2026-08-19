@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
+from app.ai.context_builder import build_context
 from app.models.ai_insight import AIInsight, AIInsightStatus
 from app.models.experiment_api_response import ExperimentApiResponse
 from app.models.experiment_request import ExperimentRequest
@@ -60,6 +61,19 @@ def run_experiment(request: ExperimentRequest):
         total_nodes=len(request.system.nodes),
     )
 
+    # Ground the AI provider's prompt in the full workflow (topology,
+    # propagation, prior runs for this system) rather than this analysis in
+    # isolation. History is fetched from what was already persisted *before*
+    # this run, so it never includes the run currently being analyzed.
+    context = build_context(
+        system=request.system,
+        experiment=request.experiment,
+        run=run,
+        analysis=analysis,
+        resilience_score=resilience_score,
+        history=PersistenceService().list_experiments(request.system.id),
+    )
+
     # AIAnalysisService already turns provider failures into an honest
     # AIInsight status instead of raising — this except is a last-resort
     # safety net so that even a bug in that translation can't take down an
@@ -69,6 +83,7 @@ def run_experiment(request: ExperimentRequest):
             analysis,
             experiment_type=request.experiment.type,
             target_node=request.experiment.target_node,
+            context=context,
         )
     except Exception:
         logger.exception("AIAnalysisService raised unexpectedly")

@@ -7,6 +7,7 @@ from app.ai.providers.bob import BobAIProvider
 from app.ai.providers.errors import AIProviderNotConfiguredError, AIProviderUnavailableError
 from app.ai.providers.mock import MockAIProvider
 from app.models.ai_insight import AIInsight, AIInsightStatus
+from app.models.faultlens_context import FaultLensContext
 from app.models.resilience_analysis import ResilienceAnalysis
 
 logger = logging.getLogger(__name__)
@@ -46,10 +47,15 @@ class AIAnalysisService:
         resilience_analysis: ResilienceAnalysis,
         experiment_type: str = "service_down",
         target_node: str | None = None,
+        context: FaultLensContext | None = None,
     ) -> AIInsight:
         """
         Generates an AI interpretation of a resilience analysis, or an
         explicit non-available AIInsight if the provider can't produce one.
+
+        `context`, when provided, is passed through to the prompt builder so
+        the provider reasons over the full FaultLens workflow (system
+        topology, propagation, history) rather than this analysis alone.
         """
 
         try:
@@ -75,6 +81,7 @@ class AIAnalysisService:
                 resilience_analysis,
                 experiment_type=experiment_type,
                 target_node=target_node,
+                context=context,
             )
         except AIProviderNotConfiguredError as exc:
             return AIInsight(

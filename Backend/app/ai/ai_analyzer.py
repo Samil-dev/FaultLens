@@ -1,6 +1,7 @@
 from app.ai.prompt_builder import PromptBuilder
 from app.ai.providers.base import BaseAIProvider
 from app.models.ai_analysis import AIAnalysis
+from app.models.faultlens_context import FaultLensContext
 from app.models.resilience_analysis import ResilienceAnalysis
 
 
@@ -21,15 +22,21 @@ class AIAnalyzer:
         resilience_analysis: ResilienceAnalysis,
         experiment_type: str = "service_down",
         target_node: str | None = None,
+        context: FaultLensContext | None = None,
     ) -> AIAnalysis:
         """
         Generates an AI interpretation of the resilience analysis.
+
+        `context`, when provided, grounds the prompt in the full FaultLens
+        workflow (system topology, propagation path, experiment history)
+        instead of just this one analysis — see PromptBuilder.build().
         """
 
         prompt = self.prompt_builder.build(
             resilience_analysis,
             experiment_type=experiment_type,
             target_node=target_node,
+            context=context,
         )
 
         response = self.provider.generate(prompt)
