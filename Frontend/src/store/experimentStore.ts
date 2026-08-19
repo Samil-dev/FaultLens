@@ -3,11 +3,11 @@ import type {
   System,
   Experiment,
   ExperimentRunData,
-  NodeStatus,
   ScenarioComparison,
 } from '../types/api'
 import { fetchExperimentHistory } from '../services/api'
 import { setStoredSystemId } from '../utils/activeSystem'
+import { buildHealthyNodeStates, computeSettledNodeStates, type NodeVisualState } from '../utils/nodeStates'
 
 // Demo system that ships with the app — a realistic microservices architecture
 export const DEMO_SYSTEM: System = {
@@ -55,12 +55,6 @@ export type ConnectionStatus = 'connecting' | 'online' | 'offline'
 // it's given up and fallen back to whatever system is already in memory).
 export type BootstrapStatus = 'loading' | 'ready'
 
-interface NodeVisualState {
-  status: NodeStatus
-  highlighted: boolean
-  animating: boolean
-}
-
 interface ExperimentStore {
   // ── System ──────────────────────────────────────────────────────────────────
   system: System
@@ -105,6 +99,7 @@ interface ExperimentStore {
   // ── Node visual states (driven by events/results) ─────────────────────────────
   nodeStates: Record<string, NodeVisualState>
   setNodeState: (id: string, state: Partial<NodeVisualState>) => void
+  setNodeStatesBulk: (states: Record<string, NodeVisualState>) => void
   resetNodeStates: () => void
 
   // ── Results ──────────────────────────────────────────────────────────────────
@@ -129,21 +124,20 @@ interface ExperimentStore {
   // ── System switcher modal ────────────────────────────────────────────────────
   systemSwitcherOpen: boolean
   setSystemSwitcherOpen: (open: boolean) => void
-}
 
-function buildDefaultNodeStates(system: System): Record<string, NodeVisualState> {
-  const states: Record<string, NodeVisualState> = {}
-  for (const node of system.nodes) {
-    states[node.id] = { status: node.status as NodeStatus, highlighted: false, animating: false }
-  }
-  return states
+  // Jumps straight to a past experiment result — used by History. Restores
+  // not just the result panel but the *whole* workflow context: which node
+  // it targeted (selection follows it) and how the Digital Twin looked once
+  // that run settled (node states follow it too), so reviewing history looks
+  // like looking at a freshly-completed run instead of a stale graph.
+  viewResult: (result: ExperimentRunData) => void
 }
 
 export const useStore = create<ExperimentStore>((set, get) => ({
   // ── System ───────────────────────────────────────────────────────────────────
   system: DEMO_SYSTEM,
   setSystem: (system) =>
-    set({ system, nodeStates: buildDefaultNodeStates(system) }),
+    set({ system, nodeStates: buildHealthyNodeStates(system) }),
 
   systems: [],
   setSystems: (systems) => set({ systems }),
@@ -151,15 +145,20 @@ export const useStore = create<ExperimentStore>((set, get) => ({
   activateSystem: async (system) => {
     // Switch immediately and clear everything that belonged to the previous
     // system, so nothing from it can remain visible while history loads.
+    // Also lands back on the Digital Twin tab — the natural first view of
+    // any (newly activated) system, per the core-workflow requirement that
+    // import/switch always leads back to the twin rather than wherever the
+    // sidebar happened to be pointed at.
     set({
       system,
-      nodeStates: buildDefaultNodeStates(system),
+      nodeStates: buildHealthyNodeStates(system),
       selectedNodeId: null,
       lastResult: null,
       comparisonResult: null,
       pendingExperiment: null,
       phase: 'idle',
       experimentHistory: [],
+      activeSidebarPanel: 'system',
     })
     setStoredSystemId(system.id)
 
@@ -196,7 +195,7 @@ export const useStore = create<ExperimentStore>((set, get) => ({
   setPendingExperiment: (pendingExperiment) => set({ pendingExperiment }),
 
   // ── Node visual states ────────────────────────────────────────────────────────
-  nodeStates: buildDefaultNodeStates(DEMO_SYSTEM),
+  nodeStates: buildHealthyNodeStates(DEMO_SYSTEM),
   setNodeState: (id, partial) =>
     set((s) => ({
       nodeStates: {
@@ -204,8 +203,9 @@ export const useStore = create<ExperimentStore>((set, get) => ({
         [id]: { ...s.nodeStates[id], ...partial },
       },
     })),
+  setNodeStatesBulk: (nodeStates) => set({ nodeStates }),
   resetNodeStates: () =>
-    set((s) => ({ nodeStates: buildDefaultNodeStates(s.system) })),
+    set((s) => ({ nodeStates: buildHealthyNodeStates(s.system) })),
 
   // ── Results ───────────────────────────────────────────────────────────────────
   lastResult: null,
@@ -230,4 +230,13 @@ export const useStore = create<ExperimentStore>((set, get) => ({
   // ── System switcher modal ────────────────────────────────────────────────────
   systemSwitcherOpen: false,
   setSystemSwitcherOpen: (systemSwitcherOpen) => set({ systemSwitcherOpen }),
+
+  viewResult: (result) =>
+    set((s) => ({
+      lastResult: result,
+      phase: 'done',
+      selectedNodeId: result.run.target_node,
+      nodeStates: computeSettledNodeStates(s.system, result),
+      pendingExperiment: null,
+    })),
 }))
