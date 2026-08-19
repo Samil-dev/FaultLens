@@ -45,7 +45,7 @@ export function LeftSidebar() {
     lastResult,
     selectNode,
     setPendingExperiment,
-    setLastResult,
+    viewResult,
   } = useStore()
 
   const [historyFilter, setHistoryFilter] = useState('')
@@ -522,10 +522,7 @@ export function LeftSidebar() {
                       key={result.run.id}
                       type="button"
                       className="history-item"
-                      onClick={() => {
-                        setLastResult(result)
-                        setPhase('done')
-                      }}
+                      onClick={() => viewResult(result)}
                       style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>

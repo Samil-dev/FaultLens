@@ -18,7 +18,7 @@ export function NextExperimentSuggestion({
    *  passed through so the backend doesn't just re-suggest it. */
   lastTargetNode: string
 }) {
-  const { system, setPendingExperiment, setPhase } = useStore()
+  const { system, setPendingExperiment, setPhase, selectNode } = useStore()
   const [state, setState] = useState<State>({ status: 'loading' })
 
   useEffect(() => {
@@ -36,6 +36,12 @@ export function NextExperimentSuggestion({
   }, [analysis, lastTargetNode])
 
   function runSuggested(exp: NonNullable<Suggestion['suggested_experiment']>) {
+    // Keep "selected node" and "the node this experiment targets" as one
+    // source of truth — without this, the Digital Twin graph and the
+    // Selected Node panel would still point at whatever was selected
+    // before, while the modal (and the eventual result) refer to a
+    // different node entirely.
+    selectNode(exp.target_node)
     setPendingExperiment({
       system_id: system.id,
       target_node: exp.target_node,
