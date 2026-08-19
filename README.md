@@ -312,6 +312,7 @@ Base URL in development: `http://localhost:8000`, prefix `/api`.
 | `GET` | `/api/experiments/?system_id={id}` | List persisted experiment runs, optionally filtered by system. |
 | `POST` | `/api/experiments/suggest-next?last_target_node={id}&system_id={id}` | Suggest a follow-up experiment. `system_id` (optional) makes it consider real persisted history — preferring untested nodes and varying the experiment type — instead of just the posted analysis. |
 | `POST` | `/api/experiments/compare` | Compare 2–4 previously-run experiments side by side. |
+| `GET` | `/api/mcp/status` | Real MCP integration status: whether the MCP server is available, and the most recent real MCP tool call recorded (if any). Powers the header's "IBM Bob" indicator. |
 
 Full request/response shapes live in the Pydantic models under
 `Backend/app/models/` — they are the source of truth for the contract.
@@ -406,7 +407,9 @@ is offline, and `bob` (without credentials) reports an honest
 - MCP server exposing chaos/resilience tools plus the structured
   FaultLens context — this is FaultLens's real, working integration
   surface for an external IBM Bob agent (see
-  [docs/ai-integration.md](docs/ai-integration.md))
+  [docs/ai-integration.md](docs/ai-integration.md)); every MCP tool call is
+  recorded and surfaced honestly in the header's "IBM Bob" indicator
+  (never a fabricated "Connected")
 - React dashboard fully wired to the live backend: dependency graph with
   propagation animation, experiment modal, resilience panel, metrics charts,
   history, scenario comparison, and a real "no systems yet" empty state
@@ -468,15 +471,16 @@ is committed.
 
 ## 🧪 Testing
 
-**Backend:** 241 tests, all passing, using `pytest` + FastAPI's `TestClient`
+**Backend:** 249 tests, all passing, using `pytest` + FastAPI's `TestClient`
 (full integration tests against the real app, with SQLite redirected to a
 temp file per test session). Coverage includes the chaos engine, dependency
 graph traversal, metrics service, resilience scoring, system import
-validation, the AI context pipeline, MCP tools, AI-provider-failure
-isolation, the complete system/experiment/comparison API surface, and a
-real MCP protocol round-trip (`test_mcp_protocol_roundtrip.py`) that spawns
-`app.mcp.server` as a subprocess and drives it over the actual stdio
-transport — no in-process function calls.
+validation, the AI context pipeline, MCP tools (including real MCP activity
+recording and `GET /api/mcp/status`), AI-provider-failure isolation, the
+complete system/experiment/comparison API surface, and a real MCP protocol
+round-trip (`test_mcp_protocol_roundtrip.py`) that spawns `app.mcp.server`
+as a subprocess and drives it over the actual stdio transport — no
+in-process function calls.
 
 ```bash
 cd Backend
@@ -498,8 +502,11 @@ npx playwright test
 
 The suite covers the full Core Workflow (import → Digital Twin → experiment
 → propagation → resilience → recommendation → history → reload), system
-persistence & switching, and hardening checks (system-switch data isolation,
-import validation error surfacing).
+persistence & switching, hardening checks (system-switch data isolation,
+import validation error surfacing), and the IBM Bob / MCP integration
+(`mcp-integration.spec.ts`) — which spawns a real MCP client subprocess
+(`Backend/scripts/mcp_demo_client.py`) and confirms the header's status
+indicator reflects that genuine cross-process activity.
 
 **CI:** backend tests and the frontend build run automatically on every push
 and pull request to `main` (see
