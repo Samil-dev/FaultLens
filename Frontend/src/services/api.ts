@@ -12,9 +12,39 @@ import type {
 
 const BASE = '/api'
 
+/**
+ * Extracts a clean, human-readable message from a non-ok response body.
+ * The backend uses two different error shapes depending on where the
+ * error originates:
+ *  - `{ success: false, error: { message } }` — the app's own ValueError
+ *    handler (app.main.value_error_handler), for errors raised inside an
+ *    endpoint body.
+ *  - `{ detail: [{ msg, ... }] }` (or `{ detail: "..." }`) — FastAPI's
+ *    default shape for request-body validation errors (422), which is
+ *    what Pydantic model_validator errors raised while parsing a request
+ *    body actually surface as.
+ * Falls back to the raw response text if neither shape matches, so an
+ * unexpected error still shows *something* rather than nothing.
+ */
+function extractErrorMessage(text: string, status: number): string {
+  try {
+    const body = JSON.parse(text)
+    if (body?.error?.message) return body.error.message
+    if (Array.isArray(body?.detail)) {
+      return body.detail
+        .map((d: { msg?: string }) => d.msg?.replace(/^Value error,\s*/, '') ?? JSON.stringify(d))
+        .join('; ')
+    }
+    if (typeof body?.detail === 'string') return body.detail
+  } catch {
+    // Not JSON — fall through to the raw text below.
+  }
+  return text.trim() || `Request failed with status ${status}`
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`)
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`)
+  if (!res.ok) throw new Error(extractErrorMessage(await res.text(), res.status))
   return res.json() as Promise<T>
 }
 
@@ -25,8 +55,7 @@ async function post<TBody, TResponse>(path: string, body: TBody): Promise<TRespo
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`POST ${path} → ${res.status}: ${text}`)
+    throw new Error(extractErrorMessage(await res.text(), res.status))
   }
   return res.json() as Promise<TResponse>
 }

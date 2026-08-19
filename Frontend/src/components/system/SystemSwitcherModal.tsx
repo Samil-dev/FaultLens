@@ -16,12 +16,14 @@ export function SystemSwitcherModal() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState<string | null>(null)
   const [switchingTo, setSwitchingTo] = useState<string | null>(null)
+  const [switchError, setSwitchError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!systemSwitcherOpen) return
     let cancelled = false
     setLoadState('loading')
     setError(null)
+    setSwitchError(null)
     fetchSystems()
       .then((result) => {
         if (cancelled) return
@@ -49,9 +51,14 @@ export function SystemSwitcherModal() {
       return
     }
     setSwitchingTo(target.id)
+    setSwitchError(null)
     try {
       await activateSystem(target)
       close()
+    } catch (err) {
+      // Keep the modal open so the user can see what happened and retry,
+      // instead of silently doing nothing while still on the old system.
+      setSwitchError(err instanceof Error ? err.message : `Could not switch to "${target.name}".`)
     } finally {
       setSwitchingTo(null)
     }
@@ -99,8 +106,19 @@ export function SystemSwitcherModal() {
           </div>
         )}
 
+        {switchError && (
+          <div style={{
+            background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.25)',
+            borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 12,
+          }}>
+            <p style={{ fontSize: 11, color: 'var(--color-failed)' }}>
+              Switch failed — {switchError}
+            </p>
+          </div>
+        )}
+
         {loadState === 'ready' && (
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 16, maxHeight: '50vh', overflowY: 'auto' }}>
             {systems.length === 0 ? (
               <div className="empty-state" style={{ padding: '20px 0' }}>
                 <span className="empty-icon">⬡</span>
