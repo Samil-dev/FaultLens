@@ -43,15 +43,19 @@ class BobAIProvider(BaseAIProvider):
     def generate(self, prompt: str) -> str:
         if not self.endpoint or not self.api_key:
             raise AIProviderNotConfiguredError(
-                "IBM Bob provider selected (AI_PROVIDER=bob) but "
-                "BOB_API_ENDPOINT and/or BOB_API_KEY are not set. "
-                "See docs/ai-integration.md to activate it."
+                "This experimental in-app IBM Bob HTTP path (AI_PROVIDER=bob) "
+                "is not configured — BOB_API_ENDPOINT and/or BOB_API_KEY are "
+                "not set. Note: this is NOT FaultLens's official Bob "
+                "integration; that is MCP (see the 'IBM Bob' indicator in the "
+                "header, and docs/ai-integration.md)."
             )
 
         # No real IBM Bob HTTP API/SDK is integrated yet. Even with
         # credentials present, there is nothing real to call — raising here
         # (rather than fabricating a response) keeps this honest.
         raise NotImplementedError(
-            "BobAIProvider has credentials configured but no real IBM Bob "
-            "API call is implemented yet. See docs/ai-integration.md."
+            "This experimental in-app IBM Bob HTTP path has credentials "
+            "configured but no real IBM Bob API call is implemented yet — "
+            "no such endpoint/SDK exists to call. FaultLens's official Bob "
+            "integration is MCP, not this path. See docs/ai-integration.md."
         )
