@@ -80,6 +80,13 @@ interface ExperimentStore {
   bootstrapStatus: BootstrapStatus
   setBootstrapStatus: (status: BootstrapStatus) => void
 
+  // True only when bootstrap reached the backend and found literally zero
+  // persisted systems — the in-memory DEMO_SYSTEM constant must never be
+  // presented as "the active system" in that case. Gates App.tsx into a
+  // real empty state instead. Cleared the moment any system is activated.
+  noSystemsAvailable: boolean
+  setNoSystemsAvailable: (value: boolean) => void
+
   // ── Connection ───────────────────────────────────────────────────────────────
   connectionStatus: ConnectionStatus
   setConnectionStatus: (s: ConnectionStatus) => void
@@ -159,6 +166,7 @@ export const useStore = create<ExperimentStore>((set, get) => ({
       phase: 'idle',
       experimentHistory: [],
       activeSidebarPanel: 'system',
+      noSystemsAvailable: false,
     })
     setStoredSystemId(system.id)
 
@@ -177,6 +185,9 @@ export const useStore = create<ExperimentStore>((set, get) => ({
 
   bootstrapStatus: 'loading',
   setBootstrapStatus: (bootstrapStatus) => set({ bootstrapStatus }),
+
+  noSystemsAvailable: false,
+  setNoSystemsAvailable: (noSystemsAvailable) => set({ noSystemsAvailable }),
 
   // ── Connection ────────────────────────────────────────────────────────────────
   connectionStatus: 'connecting',

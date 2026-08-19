@@ -11,7 +11,10 @@ import { useStore } from './store/experimentStore'
 import { clearStoredSystemId, getStoredSystemId } from './utils/activeSystem'
 
 export default function App() {
-  const { activateSystem, setSystems, bootstrapStatus, setBootstrapStatus } = useStore()
+  const {
+    activateSystem, setSystems, bootstrapStatus, setBootstrapStatus,
+    noSystemsAvailable, setNoSystemsAvailable, setSystemImportOpen,
+  } = useStore()
 
   useEffect(() => {
     let cancelled = false
@@ -40,11 +43,14 @@ export default function App() {
 
         if (target) {
           await activateSystem(target)
+        } else {
+          // The backend answered but genuinely has zero persisted systems.
+          // The in-memory DEMO_SYSTEM constant the store still holds must
+          // never be presented as "the active system" in this case — it
+          // was never activated, never persisted, and reloading would lose
+          // it silently. Show a real empty state instead.
+          setNoSystemsAvailable(true)
         }
-        // If the backend has no systems at all (shouldn't happen — it
-        // auto-seeds the demo system — but handled defensively), the
-        // in-memory DEMO_SYSTEM constant the store already started with
-        // remains on screen untouched.
       } catch {
         // Backend unreachable at boot. Keep whatever system is already in
         // memory (the bundled DEMO_SYSTEM) so the dashboard stays usable;
@@ -78,6 +84,27 @@ export default function App() {
         <span style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
           Restoring workspace…
         </span>
+      </div>
+    )
+  }
+
+  if (noSystemsAvailable) {
+    return (
+      <div style={{
+        height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 14, background: 'var(--bg-base)',
+      }}>
+        <span style={{ fontSize: 40, opacity: 0.5 }}>⬡</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+          No systems yet
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 320, textAlign: 'center', lineHeight: 1.6 }}>
+          The backend has no persisted architectures. Import a system to create its Digital Twin and start a resilience workflow.
+        </span>
+        <button className="btn btn-primary" onClick={() => setSystemImportOpen(true)}>
+          ⬡ Import System
+        </button>
+        <ImportSystemModal />
       </div>
     )
   }
