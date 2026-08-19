@@ -5,7 +5,7 @@ from app.models.resilience_analysis import ResilienceAnalysis
 from app.models.resilience_score import ResilienceScore
 from app.models.simulation_event import SimulationEvent
 from app.models.simulation_run import SimulationRun
-from app.models.ai_analysis import AIAnalysis
+from app.models.ai_insight import AIInsight
 
 
 class ExperimentRunData(BaseModel):
@@ -39,7 +39,7 @@ class ExperimentRunData(BaseModel):
         description="Complete resilience analysis"
     )
 
-    ai_analysis: AIAnalysis = Field(
+    ai_analysis: AIInsight = Field(
         ...,
-        description="AI-assisted interpretation of the resilience analysis"
+        description="AI-assisted interpretation of the resilience analysis, or an explicit unavailable/error/not-configured status"
     )

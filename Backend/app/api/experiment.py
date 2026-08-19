@@ -1,5 +1,8 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 
+from app.models.ai_insight import AIInsight, AIInsightStatus
 from app.models.experiment_api_response import ExperimentApiResponse
 from app.models.experiment_request import ExperimentRequest
 from app.models.experiment_response import ExperimentRunData
@@ -16,6 +19,8 @@ from app.services.persistence_service import PersistenceService
 from app.services.resilience_orchestrator import (
     suggest_next_experiment as compute_next_experiment_suggestion,
 )
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -55,11 +60,23 @@ def run_experiment(request: ExperimentRequest):
         total_nodes=len(request.system.nodes),
     )
 
-    ai_analysis = AIAnalysisService().analyze(
-        analysis,
-        experiment_type=request.experiment.type,
-        target_node=request.experiment.target_node,
-    )
+    # AIAnalysisService already turns provider failures into an honest
+    # AIInsight status instead of raising — this except is a last-resort
+    # safety net so that even a bug in that translation can't take down an
+    # otherwise-successful experiment result.
+    try:
+        ai_analysis = AIAnalysisService().analyze(
+            analysis,
+            experiment_type=request.experiment.type,
+            target_node=request.experiment.target_node,
+        )
+    except Exception:
+        logger.exception("AIAnalysisService raised unexpectedly")
+        ai_analysis = AIInsight(
+            status=AIInsightStatus.ERROR,
+            provider="unknown",
+            message="The AI provider failed to generate an analysis for this experiment.",
+        )
 
     result = ExperimentRunData(
         run=run,

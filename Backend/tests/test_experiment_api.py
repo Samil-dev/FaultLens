@@ -127,7 +127,12 @@ class TestRunExperimentEndpoint:
         body = test_client.post(
             "/api/experiments/run", json=run_experiment_payload_db_main
         ).json()
-        ai = body["data"]["ai_analysis"]
+        insight = body["data"]["ai_analysis"]
+        assert insight["status"]   == "available"
+        assert insight["provider"] == "mock"
+        assert insight["message"] is None
+
+        ai = insight["analysis"]
         assert "summary"            in ai
         assert "root_cause"         in ai
         assert "risk_interpretation" in ai
@@ -380,7 +385,7 @@ class TestRunExperimentEndpoint:
             },
         }
         body = test_client.post("/api/experiments/run", json=payload).json()
-        summary = body["data"]["ai_analysis"]["summary"].lower()
+        summary = body["data"]["ai_analysis"]["analysis"]["summary"].lower()
         assert "traffic" in summary or "request" in summary or "overload" in summary
 
     def test_traffic_spike_ai_root_cause_contains_target_node(
@@ -398,9 +403,94 @@ class TestRunExperimentEndpoint:
             },
         }
         body = test_client.post("/api/experiments/run", json=payload).json()
-        root_cause = body["data"]["ai_analysis"]["root_cause"].lower()
+        root_cause = body["data"]["ai_analysis"]["analysis"]["root_cause"].lower()
         # Evidence-based root cause must mention the target node
         assert "auth" in root_cause
+
+
+# ── AI provider failure isolation ─────────────────────────────────────────────
+# A provider that can't produce an analysis (missing config, or an outright
+# failure) must never take the rest of the experiment result down with it.
+
+class TestAIProviderFailureIsolation:
+    def test_unconfigured_bob_provider_reports_not_configured(
+        self, test_client, run_experiment_payload_db_main, monkeypatch
+    ):
+        monkeypatch.setenv("AI_PROVIDER", "bob")
+        monkeypatch.delenv("BOB_API_ENDPOINT", raising=False)
+        monkeypatch.delenv("BOB_API_KEY", raising=False)
+
+        response = test_client.post(
+            "/api/experiments/run", json=run_experiment_payload_db_main
+        )
+        assert response.status_code == 200
+
+        body = response.json()
+        assert body["success"] is True
+
+        insight = body["data"]["ai_analysis"]
+        assert insight["status"] == "not_configured"
+        assert insight["provider"] == "bob"
+        assert insight["analysis"] is None
+        assert insight["message"]  # a human-readable explanation is present
+
+        # The rest of the experiment result is completely unaffected.
+        assert body["data"]["run"]["status"] == "completed"
+        assert "analysis" in body["data"]
+        assert "resilience_score" in body["data"]
+        assert "comparisons" in body["data"]
+
+    def test_provider_that_raises_reports_error_without_losing_the_experiment(
+        self, test_client, run_experiment_payload_db_main, monkeypatch
+    ):
+        import app.services.ai_analysis_service as ai_service_module
+        from app.ai.providers.base import BaseAIProvider
+
+        class ExplodingProvider(BaseAIProvider):
+            @property
+            def name(self) -> str:
+                return "exploding"
+
+            def generate(self, prompt: str) -> str:
+                raise RuntimeError("simulated provider outage")
+
+        monkeypatch.setitem(ai_service_module._PROVIDERS, "exploding", ExplodingProvider)
+        monkeypatch.setenv("AI_PROVIDER", "exploding")
+
+        response = test_client.post(
+            "/api/experiments/run", json=run_experiment_payload_db_main
+        )
+        assert response.status_code == 200
+
+        body = response.json()
+        assert body["success"] is True
+
+        insight = body["data"]["ai_analysis"]
+        assert insight["status"] == "error"
+        assert insight["provider"] == "exploding"
+        assert insight["analysis"] is None
+        assert insight["message"]
+
+        # The experiment itself, its metrics, and its resilience analysis
+        # must all still be present and correct.
+        assert body["data"]["run"]["status"] == "completed"
+        assert body["data"]["analysis"]["risk"]["level"] in {"low", "moderate", "high", "critical"}
+        assert body["data"]["resilience_score"]["score"] >= 0
+
+    def test_default_mock_provider_is_unaffected_by_the_registry(
+        self, test_client, run_experiment_payload_gateway, monkeypatch
+    ):
+        """Sanity check: AI_PROVIDER unset still resolves to the working mock
+        provider, unaffected by whatever the previous two tests registered."""
+        monkeypatch.delenv("AI_PROVIDER", raising=False)
+
+        body = test_client.post(
+            "/api/experiments/run", json=run_experiment_payload_gateway
+        ).json()
+        insight = body["data"]["ai_analysis"]
+        assert insight["status"] == "available"
+        assert insight["provider"] == "mock"
+        assert insight["analysis"]["summary"]
 
 
 # ── Experiment history endpoint ───────────────────────────────────────────────
