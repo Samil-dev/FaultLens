@@ -161,3 +161,62 @@ class TestRunChaosExperimentPersists:
         # the specific recommendation depends on this tiny fixture's
         # (deliberately trivial) resilience characteristics.
         assert "recommendation_type" in suggestion
+
+
+class TestMcpActivityIsRecorded:
+    """
+    Every real MCP tool call must leave evidence in PersistenceService's
+    mcp_activity table — this is what GET /api/mcp/status (and the
+    frontend's "IBM Bob via MCP" indicator) reports, so it must reflect an
+    MCP tool genuinely having been invoked, not a fabricated flag.
+    """
+
+    def test_run_chaos_experiment_records_activity(self, isolated_persistence):
+        from app.services.persistence_service import PersistenceService
+
+        system, experiment = TestRunChaosExperimentPersists()._payloads("sys-activity-1")
+        run_chaos_experiment(system=system, experiment=experiment)
+
+        activity = PersistenceService().get_last_mcp_activity()
+        assert activity is not None
+        assert activity["tool_name"] == "chaos_run_experiment"
+        assert activity["system_id"] == "sys-activity-1"
+
+    def test_get_faultlens_context_records_activity(self, isolated_persistence):
+        from app.services.persistence_service import PersistenceService
+
+        get_faultlens_context("sys-activity-2")
+
+        activity = PersistenceService().get_last_mcp_activity()
+        assert activity is not None
+        assert activity["tool_name"] == "faultlens_get_context"
+        assert activity["system_id"] == "sys-activity-2"
+
+    def test_get_resilience_analysis_records_activity(self, isolated_persistence):
+        from app.mcp.tools import get_resilience_analysis
+        from app.services.persistence_service import PersistenceService
+
+        system, experiment = TestRunChaosExperimentPersists()._payloads("sys-activity-3")
+        get_resilience_analysis(system=system, experiment=experiment)
+
+        activity = PersistenceService().get_last_mcp_activity()
+        assert activity is not None
+        assert activity["tool_name"] == "chaos_get_resilience_analysis"
+        assert activity["system_id"] == "sys-activity-3"
+
+    def test_suggest_next_experiment_records_activity(self, isolated_persistence):
+        from app.mcp.tools import suggest_next_experiment
+        from app.services.persistence_service import PersistenceService
+
+        clean_analysis = {
+            "impact": {"blast_radius": 0.0, "affected_nodes": 0, "total_nodes": 1, "critical_nodes": [], "average_metric_impact": 0.0},
+            "recovery": {"recovered_nodes": 0, "total_recovery_nodes": 0, "average_recovery_seconds": 0.0, "max_recovery_seconds": 0.0, "failed_recoveries": []},
+            "risk": {"level": "low", "reason": "No impact observed."},
+            "recommendations": [],
+        }
+        suggest_next_experiment(analysis=clean_analysis, system_id="sys-activity-4")
+
+        activity = PersistenceService().get_last_mcp_activity()
+        assert activity is not None
+        assert activity["tool_name"] == "chaos_suggest_next_experiment"
+        assert activity["system_id"] == "sys-activity-4"

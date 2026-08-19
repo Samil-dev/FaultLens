@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.health import router as health_router
 from app.api.system import router as system_router
 from app.api.experiment import router as experiment_router
+from app.api.mcp_status import router as mcp_status_router
 from app.services.demo_system import build_demo_system
 from app.services.persistence_service import PersistenceService
 
@@ -76,4 +77,8 @@ app.include_router(
 
 app.include_router(
     experiment_router
+)
+
+app.include_router(
+    mcp_status_router
 )

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -35,6 +36,13 @@ class PersistenceService:
         with self._connect() as connection:
             connection.execute("CREATE TABLE IF NOT EXISTS systems (id TEXT PRIMARY KEY, payload TEXT NOT NULL)")
             connection.execute("CREATE TABLE IF NOT EXISTS experiment_history (run_id TEXT PRIMARY KEY, system_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS mcp_activity ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "tool_name TEXT NOT NULL, "
+                "system_id TEXT, "
+                "called_at TEXT NOT NULL)"
+            )
 
     def save_system(self, system: System) -> System:
         with self._connect() as connection:
@@ -94,3 +102,29 @@ class PersistenceService:
         except ValidationError:
             logger.warning("experiment_history row '%s' no longer matches the current schema", run_id)
             return None
+
+    def record_mcp_activity(self, tool_name: str, system_id: str | None = None) -> None:
+        """
+        Records a real MCP tool invocation. This is the only source of
+        truth the REST API (and therefore the frontend) has for "has an MCP
+        client actually used FaultLens's tools" — MCP itself runs over a
+        separate stdio subprocess with no other channel back to whatever
+        process is serving the REST API, so this table is what makes an
+        honest (non-fabricated) "IBM Bob via MCP" status in the UI possible.
+        """
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO mcp_activity (tool_name, system_id, called_at) VALUES (?, ?, ?)",
+                (tool_name, system_id, datetime.now(timezone.utc).isoformat()),
+            )
+
+    def get_last_mcp_activity(self) -> dict | None:
+        """Returns the most recent recorded MCP tool call, or None if the
+        MCP tools have never been invoked against this database."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT tool_name, system_id, called_at FROM mcp_activity ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        if row is None:
+            return None
+        return {"tool_name": row["tool_name"], "system_id": row["system_id"], "called_at": row["called_at"]}

@@ -33,6 +33,33 @@ __all__ = [
     "suggest_next_experiment",
 ]
 
+_get_resilience_analysis = get_resilience_analysis
+
+
+def _record_activity(tool_name: str, system_id: str | None = None) -> None:
+    """
+    Best-effort activity recording — a logging hiccup here must never break
+    an actual MCP tool call. This is the real, verifiable signal
+    GET /api/mcp/status (and the frontend's "IBM Bob via MCP" indicator)
+    is built on: MCP runs over a separate stdio subprocess with no other
+    channel back to whatever process serves the REST API, so a real
+    invocation of one of these functions is the only honest evidence that
+    an MCP client has actually used FaultLens.
+    """
+    try:
+        PersistenceService().record_mcp_activity(tool_name, system_id)
+    except Exception:
+        logger.exception("Failed to record MCP activity for tool '%s'", tool_name)
+
+
+def get_resilience_analysis(system: dict, experiment: dict) -> dict:
+    """
+    Thin wrapper around resilience_orchestrator.get_resilience_analysis that
+    additionally records MCP activity — see _record_activity().
+    """
+    _record_activity("chaos_get_resilience_analysis", system.get("id") if isinstance(system, dict) else None)
+    return _get_resilience_analysis(system=system, experiment=experiment)
+
 
 def run_chaos_experiment(system: dict, experiment: dict) -> dict:
     """
@@ -49,6 +76,8 @@ def run_chaos_experiment(system: dict, experiment: dict) -> dict:
     experiment result — the same "don't let a secondary concern break the
     experiment" guarantee POST /api/experiments/run makes.
     """
+
+    _record_activity("chaos_run_experiment", system.get("id") if isinstance(system, dict) else None)
 
     result = _run_chaos_experiment(system=system, experiment=experiment)
 
@@ -109,6 +138,8 @@ def suggest_next_experiment(
     mirrors POST /api/experiments/suggest-next's system_id query param.
     """
 
+    _record_activity("chaos_suggest_next_experiment", system_id)
+
     history = (
         [result.model_dump(mode="json") for result in PersistenceService().list_experiments(system_id)]
         if system_id
@@ -133,6 +164,8 @@ def get_faultlens_context(system_id: str) -> dict:
     error dict — never raises — if the system doesn't exist, so a calling
     agent gets an actionable message instead of a protocol-level failure.
     """
+
+    _record_activity("faultlens_get_context", system_id)
 
     persistence = PersistenceService()
     system = persistence.get_system(system_id)
