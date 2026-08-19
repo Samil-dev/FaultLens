@@ -135,7 +135,19 @@ traversal, just with different metric signatures and severities.
 ## 🧠 AI-Powered Resilience Intelligence
 
 After each experiment, an AI analysis layer turns the resilience analysis
-into a structured, human-readable interpretation:
+into a structured, human-readable interpretation. The response is never
+assumed to succeed — `ai_analysis` on an experiment result is an **AIInsight**
+with an explicit `status`, so a provider failure can never take the rest of
+the experiment (metrics, propagation, resilience analysis) down with it:
+
+| Status | Meaning |
+|---|---|
+| `available` | A real interpretation was produced — `analysis` is populated. |
+| `not_configured` | The selected provider needs credentials/config that aren't set. |
+| `unavailable` | The provider is configured but couldn't be reached (transient). |
+| `error` | The provider was invoked but failed unexpectedly. |
+
+When `status` is `available`, `analysis` carries:
 
 | Field | Description |
 |---|---|
@@ -150,9 +162,33 @@ The AI layer sits behind a provider interface (`BaseAIProvider`), selected via
 an `AI_PROVIDER` environment variable. **Today the only implemented provider
 is a deterministic, offline "mock" provider** that builds its explanation
 directly from the simulation's real numbers (blast radius, recovery time,
-critical nodes) — no external LLM API is currently wired in. The interface
-exists specifically so a real LLM provider can be added later without
-changing the API contract or the frontend.
+critical nodes) — it is clearly labeled `provider: "mock"` in every response
+and is never presented as IBM Bob. A `BobAIProvider` stub also exists
+(`AI_PROVIDER=bob`) — see [IBM Bob Integration](docs/ai-integration.md) for
+exactly what's connected today (the MCP path) versus what's prepared but not
+yet wired to a real endpoint (the in-app provider path).
+
+### FaultLens AI Context Pipeline
+
+Whichever provider is active, it's grounded in more than the single result
+that triggered it. A `FaultLensContext` — system topology, the propagation
+path, resilience analysis, critical nodes, and a compact history trend —
+is assembled from real, already-persisted data (see
+`app/ai/context_builder.py`) and fed into the prompt:
+
+```mermaid
+flowchart LR
+    CW["FaultLens Core Workflow<br/>system · target · run · analysis · history"] --> CB["Context Builder<br/>app/ai/context_builder.py"]
+    CB --> CTX["FaultLensContext<br/>topology · propagation · trend"]
+    CTX --> PB["Prompt Builder"]
+    PB --> AI["AI Provider<br/>mock / bob"]
+    AI --> UI["FaultLens UI<br/>AI Insights panel"]
+    CTX -.->|"faultlens_get_context"| MCP2["MCP Server<br/>for an external Bob agent"]
+```
+
+The same `FaultLensContext` is also exposed as an MCP tool
+(`faultlens_get_context`) — see **Architecture** below and
+[docs/ai-integration.md](docs/ai-integration.md) for the full picture.
 
 ## 🛡️ Resilience Analysis
 
@@ -179,11 +215,13 @@ flowchart TD
     ExpR --> Chaos["Chaos Engine<br/>+ Dependency Graph traversal"]
     Chaos --> Metrics["Metrics Service<br/>before / after snapshots"]
     Metrics --> Resilience["Resilience Analysis<br/>score · impact · recovery · risk"]
-    Resilience --> AI["AI Analysis layer<br/>summary · root cause · recommendations"]
+    Resilience --> CB["Context Builder<br/>FaultLensContext"]
+    CB --> AI["AI Analysis layer<br/>AIInsight: available/not_configured/unavailable/error"]
     SysR --> Persist[("SQLite persistence<br/>systems + experiment history")]
     AI --> Persist
     Persist --> FE
-    MCP["MCP Server<br/>chaos_run_experiment, ..."] -.-> Chaos
+    MCP["MCP Server<br/>chaos_run_experiment, faultlens_get_context, ..."] -.-> Chaos
+    MCP -.-> CB
 ```
 
 - **Frontend** renders the digital twin, drives experiments, and visualizes
@@ -196,10 +234,15 @@ flowchart TD
   per node, shaped by the experiment type.
 - **Resilience Analysis** turns the simulation output into a score, impact,
   recovery, risk, and recommendations.
-- **AI Analysis layer** interprets that analysis into natural language.
+- **Context Builder** assembles a `FaultLensContext` (topology, propagation,
+  history) from real persisted data — the same context feeds both the in-app
+  AI Analysis layer and the MCP server.
+- **AI Analysis layer** interprets that context into natural language,
+  reporting an explicit `AIInsight` status rather than assuming success.
 - **Persistence** stores systems and experiment history in SQLite.
-- **MCP Server** exposes the same chaos/resilience orchestration as tools for
-  MCP-compatible clients, independent of the REST API.
+- **MCP Server** exposes the same chaos/resilience orchestration — plus the
+  structured `FaultLensContext` — as tools for MCP-compatible clients
+  (including IBM Bob, see below), independent of the REST API.
 
 ## 🔧 Tech Stack
 
@@ -263,8 +306,9 @@ Base URL in development: `http://localhost:8000`, prefix `/api`.
 | `GET` | `/api/health` | Backend liveness check. |
 | `POST` | `/api/systems/` | Create (validate + persist) a digital twin system. |
 | `GET` | `/api/systems/` | List all persisted systems. |
-| `POST` | `/api/experiments/run` | Run a chaos experiment against a system and return the full result (run, events, comparisons, resilience score, analysis, AI analysis). |
+| `POST` | `/api/experiments/run` | Run a chaos experiment against a system and return the full result (run, events, comparisons, resilience score, analysis, AI insight). |
 | `GET` | `/api/experiments/?system_id={id}` | List persisted experiment runs, optionally filtered by system. |
+| `POST` | `/api/experiments/suggest-next?last_target_node={id}&system_id={id}` | Suggest a follow-up experiment. `system_id` (optional) makes it consider real persisted history — preferring untested nodes and varying the experiment type — instead of just the posted analysis. |
 | `POST` | `/api/experiments/compare` | Compare 2–4 previously-run experiments side by side. |
 
 Full request/response shapes live in the Pydantic models under
@@ -309,10 +353,13 @@ See [`Backend/.env.example`](Backend/.env.example):
 | Variable | Default | Purpose |
 |---|---|---|
 | `CODETWIN_DATABASE_PATH` | `Backend/codetwin.sqlite3` | SQLite file location. |
-| `AI_PROVIDER` | `mock` | Selects the AI provider used for experiment analysis. |
+| `AI_PROVIDER` | `mock` | Selects the AI provider used for experiment analysis (`mock` or `bob`). |
+| `BOB_API_ENDPOINT` | *(unset)* | Only used when `AI_PROVIDER=bob`. Not connected to a real endpoint today — see [docs/ai-integration.md](docs/ai-integration.md). |
+| `BOB_API_KEY` | *(unset)* | Only used when `AI_PROVIDER=bob`. Backend-only; never sent to or read by the frontend. |
 
-No API keys are required to run FaultLens today, since the only implemented
-AI provider is the offline mock provider.
+No API keys are required to run FaultLens today: the default `mock` provider
+is offline, and `bob` (without credentials) reports an honest
+`not_configured` status rather than failing the experiment.
 
 ## 🎥 Demo
 
@@ -328,7 +375,9 @@ AI provider is the offline mock provider.
 5. Observe which nodes were affected and the resulting blast radius.
 6. Review the resilience score and risk classification.
 7. Inspect recovery time per node.
-8. Read the AI analysis — summary, root cause, risk interpretation.
+8. Read the AI analysis — summary, root cause, risk interpretation (or, with
+   `AI_PROVIDER=bob` and no credentials set, an honest "not configured" notice
+   instead of a fabricated response).
 9. Review the recommendations, and optionally compare this run against a
    previous one in **Compare Scenarios**.
 
@@ -336,32 +385,52 @@ AI provider is the offline mock provider.
 
 ### ✅ Implemented
 
-- Digital twin system model with cycle-free dependency graph validation
+- Digital twin system model with cycle-free dependency graph validation,
+  duplicate/missing-reference rejection, and a rejected empty architecture
 - Four chaos experiment types with dependency-aware failure propagation
 - Deterministic before/after metrics simulation
 - Full resilience analysis: score, impact, recovery, risk, recommendations
-- AI interpretation layer (mock provider) with a pluggable provider interface
-- SQLite persistence for systems and experiment history, auto-seeded demo system
+- AI interpretation layer with an explicit `AIInsight` status
+  (available / not_configured / unavailable / error) — a provider failure
+  can never take down an otherwise-successful experiment result
+- `FaultLensContext` pipeline: system topology, propagation, and history are
+  assembled from real persisted data and fed into the AI prompt and into an
+  MCP tool (`faultlens_get_context`), instead of an isolated single result
+- History-aware `suggest_next_experiment`: prefers never-tested nodes and
+  varies the suggested experiment type when given a `system_id`
+- SQLite persistence for systems and experiment history, auto-seeded demo
+  system, tolerant of rows from an older schema version
 - Scenario comparison across 2–4 runs
-- MCP server exposing chaos/resilience tools
+- MCP server exposing chaos/resilience tools plus the structured
+  FaultLens context — this is FaultLens's real, working integration
+  surface for an external IBM Bob agent (see
+  [docs/ai-integration.md](docs/ai-integration.md))
 - React dashboard fully wired to the live backend: dependency graph with
   propagation animation, experiment modal, resilience panel, metrics charts,
-  history, and scenario comparison
-- 199 backend tests; CI running backend tests + frontend build
+  history, scenario comparison, and a real "no systems yet" empty state
+- Correct system-switching: importing/switching systems clears the previous
+  system's result, selection, comparison, and recommendation state
+- 237 backend tests; a 5-spec Playwright suite (Core Workflow, persistence &
+  switching, and hardening: system-switch isolation + import validation)
+  driving the real UI against the real backend; CI running backend tests +
+  frontend build
 
 ### 🔨 In Progress
 
-- No real external LLM provider connected yet (mock provider only)
-- No automated frontend test suite (validated via type-check + build only)
+- No real external LLM provider connected yet — `mock` (offline,
+  deterministic) is the default; `bob` is a prepared-but-unconnected stub
+  (see [docs/ai-integration.md](docs/ai-integration.md))
 - Repository screenshots (see [`docs/images/README.md`](docs/images/README.md))
 
 ### 🔮 Planned
 
-- A real LLM-backed AI provider, using the existing `BaseAIProvider` interface
+- A real IBM Bob (or other LLM) in-app provider connection, using the
+  existing `BaseAIProvider` interface and `BobAIProvider` stub
 - WebSocket-based live simulation events, replacing the current
   request/response run cycle
 - Authentication and multi-user / multi-system support
-- Frontend automated tests
+- Longer-term resilience-score trend analysis in `suggest_next_experiment`,
+  beyond the current per-node history summary
 
 ## 🗺️ Roadmap
 
@@ -371,8 +440,9 @@ Digital twin modeling, dependency graph, REST API, persistence.
 **Phase 2 — Resilience Intelligence** ✅
 Chaos experiments, metrics simulation, resilience/impact/recovery/risk analysis, scenario comparison.
 
-**Phase 3 — AI Interpretation** ✅ (mock provider) / 🔮 (real provider)
-Structured AI analysis of every experiment; swapping in a real LLM provider is next.
+**Phase 3 — AI Interpretation** ✅ (mock provider + context pipeline) / 🔮 (real provider)
+Structured AI analysis grounded in a real `FaultLensContext`, with explicit
+failure states; connecting `BobAIProvider` to a real IBM Bob endpoint is next.
 
 **Phase 4 — Advanced Simulation**
 Live (WebSocket) simulation events, richer failure modes, larger/imported system topologies.
@@ -389,26 +459,44 @@ network calls, process kills, or resource throttling are performed outside
 the simulation engine. This makes FaultLens safe to run repeatedly, in any
 environment, without risk to production systems.
 
+Any AI provider credentials (`BOB_API_KEY`, etc.) are read from backend
+environment variables only — never sent to, stored in, or read by the
+frontend. `.env` files are git-ignored; only `.env.example` (no real values)
+is committed.
+
 ## 🧪 Testing
 
-**Backend:** 199 tests, all passing, using `pytest` + FastAPI's `TestClient`
+**Backend:** 237 tests, all passing, using `pytest` + FastAPI's `TestClient`
 (full integration tests against the real app, with SQLite redirected to a
 temp file per test session). Coverage includes the chaos engine, dependency
-graph traversal, metrics service, resilience scoring, and the complete
-system/experiment/comparison API surface.
+graph traversal, metrics service, resilience scoring, system import
+validation, the AI context pipeline, MCP tools, AI-provider-failure
+isolation, and the complete system/experiment/comparison API surface.
 
 ```bash
 cd Backend
 venv\Scripts\python.exe -m pytest
 ```
 
-**Frontend:** no automated test suite yet — validated via TypeScript's
-compiler and a production build:
+**Frontend:** validated via TypeScript's compiler, a production build, and a
+Playwright end-to-end suite driving the real UI against the real backend
+(no internal function calls, no mocked responses):
 
 ```bash
 cd Frontend
 npm run build
+
+# In two other terminals, first start both dev servers (see Getting
+# Started), then:
+npx playwright test
 ```
 
-**CI:** both run automatically on every push and pull request to `main`
-(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+The suite covers the full Core Workflow (import → Digital Twin → experiment
+→ propagation → resilience → recommendation → history → reload), system
+persistence & switching, and hardening checks (system-switch data isolation,
+import validation error surfacing).
+
+**CI:** backend tests and the frontend build run automatically on every push
+and pull request to `main` (see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)); Playwright requires
+both servers running and is currently run locally, not in CI.
