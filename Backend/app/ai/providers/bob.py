@@ -9,10 +9,15 @@ class BobAIProvider(BaseAIProvider):
     Prepared integration point for IBM Bob as an in-app AI provider.
 
     This is NOT a working connection to a real IBM Bob endpoint — no such
-    endpoint, SDK, or credential exists in this repository today. Selecting
-    "bob" via AI_PROVIDER makes this the active provider, but every call
-    raises AIProviderNotConfiguredError until BOB_API_ENDPOINT and
-    BOB_API_KEY are both set, so AIAnalysisService reports an honest
+    endpoint, SDK, or credential exists in this repository or environment
+    today. BOB_API_ENDPOINT / BOB_API_KEY below are placeholder variable
+    names chosen for this stub, not names verified against any real IBM Bob
+    API specification (none was found in this repo/environment to verify
+    against) — treat them as "what a real HTTP-based provider would need",
+    to be renamed/replaced once a real spec is available, not as a
+    documented IBM Bob contract. Selecting "bob" via AI_PROVIDER makes this
+    the active provider, but every call raises AIProviderNotConfiguredError
+    until both are set, so AIAnalysisService reports an honest
     "not_configured" status instead of fabricating a response.
 
     See docs/ai-integration.md for exactly what's required to activate a

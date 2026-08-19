@@ -242,7 +242,9 @@ flowchart TD
 - **Persistence** stores systems and experiment history in SQLite.
 - **MCP Server** exposes the same chaos/resilience orchestration — plus the
   structured `FaultLensContext` — as tools for MCP-compatible clients
-  (including IBM Bob, see below), independent of the REST API.
+  (including IBM Bob, see below), independent of the REST API. An
+  experiment triggered via MCP is persisted exactly like one triggered from
+  the UI, so it's real history for later context/recommendation calls.
 
 ## 🔧 Tech Stack
 
@@ -466,12 +468,15 @@ is committed.
 
 ## 🧪 Testing
 
-**Backend:** 237 tests, all passing, using `pytest` + FastAPI's `TestClient`
+**Backend:** 241 tests, all passing, using `pytest` + FastAPI's `TestClient`
 (full integration tests against the real app, with SQLite redirected to a
 temp file per test session). Coverage includes the chaos engine, dependency
 graph traversal, metrics service, resilience scoring, system import
 validation, the AI context pipeline, MCP tools, AI-provider-failure
-isolation, and the complete system/experiment/comparison API surface.
+isolation, the complete system/experiment/comparison API surface, and a
+real MCP protocol round-trip (`test_mcp_protocol_roundtrip.py`) that spawns
+`app.mcp.server` as a subprocess and drives it over the actual stdio
+transport — no in-process function calls.
 
 ```bash
 cd Backend
