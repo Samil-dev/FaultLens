@@ -14,7 +14,7 @@ import tempfile
 
 import pytest
 
-from app.mcp.tools import get_faultlens_context
+from app.mcp.tools import get_faultlens_context, run_chaos_experiment
 
 
 @pytest.fixture
@@ -92,3 +92,72 @@ class TestGetFaultLensContext:
         assert context["run_id"] == outcome["run"]["id"]
         assert context["propagation_path"][0] == "gw"
         assert context["analysis"]["risk"]["level"] in {"low", "moderate", "high", "critical"}
+
+
+class TestRunChaosExperimentPersists:
+    """
+    app.mcp.tools.run_chaos_experiment (the actual MCP tool implementation,
+    distinct from the non-persisting resilience_orchestrator function of the
+    same name) must persist automatically — this is what makes an experiment
+    triggered by an external Bob agent via MCP become real, retrievable
+    history instead of a one-off result Bob would have to remember itself.
+    """
+
+    def _payloads(self, system_id: str):
+        system = {
+            "id": system_id, "name": "MCP Auto-Persist System",
+            "nodes": [
+                {"id": "gw", "name": "Gateway", "node_type": "gateway"},
+                {"id": "svc", "name": "Service", "node_type": "service"},
+            ],
+            "dependencies": [{"source": "gw", "target": "svc", "type": "depends_on"}],
+        }
+        experiment = {
+            "id": f"exp-{system_id}", "system_id": system_id, "target_node": "gw",
+            "type": "service_down", "duration_seconds": 30,
+        }
+        return system, experiment
+
+    def test_experiment_run_via_mcp_is_immediately_visible_to_faultlens_get_context(
+        self, isolated_persistence
+    ):
+        system_id = "sys-mcp-autopersist-1"
+        system, experiment = self._payloads(system_id)
+
+        outcome = run_chaos_experiment(system=system, experiment=experiment)
+        assert outcome["run"]["status"] == "completed"
+
+        # No manual PersistenceService calls here — if run_chaos_experiment
+        # didn't persist, this would come back as a topology-only context
+        # with run_id None.
+        context = get_faultlens_context(system_id)
+        assert context["run_id"] == outcome["run"]["id"]
+        assert context["propagation_path"] == ["gw"]
+
+    def test_result_includes_an_ai_insight(self, isolated_persistence):
+        system, experiment = self._payloads("sys-mcp-autopersist-2")
+        outcome = run_chaos_experiment(system=system, experiment=experiment)
+
+        assert "ai_analysis" in outcome
+        assert outcome["ai_analysis"]["status"] == "available"
+        assert outcome["ai_analysis"]["provider"] == "mock"
+
+    def test_second_run_appears_in_history_for_suggest_next(self, isolated_persistence):
+        from app.mcp.tools import suggest_next_experiment
+
+        system_id = "sys-mcp-autopersist-3"
+        system, first_experiment = self._payloads(system_id)
+        run_chaos_experiment(system=system, experiment=first_experiment)
+
+        second_experiment = {
+            "id": "exp-second", "system_id": system_id, "target_node": "svc",
+            "type": "service_down", "duration_seconds": 30,
+        }
+        second_outcome = run_chaos_experiment(system=system, experiment=second_experiment)
+
+        analysis = second_outcome["analysis"]
+        suggestion = suggest_next_experiment(analysis=analysis, system_id=system_id)
+        # Only assert the call succeeds and returns a well-formed suggestion —
+        # the specific recommendation depends on this tiny fixture's
+        # (deliberately trivial) resilience characteristics.
+        assert "recommendation_type" in suggestion

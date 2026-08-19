@@ -4,16 +4,27 @@ MCP tool entry points for FaultLens.
 The actual business logic lives in app.services.resilience_orchestrator so it
 has a single implementation shared by both the MCP server and (potentially)
 other internal callers — this module only re-exports it under the tool names
-expected by app.mcp.server.
+expected by app.mcp.server, adding MCP-specific concerns (persistence,
+context assembly) that a bare orchestration call shouldn't own.
 """
 
+import logging
+
 from app.ai.context_builder import build_context
+from app.models.experiment_request import ExperimentRequest
+from app.models.experiment_response import ExperimentRunData
+from app.models.resilience_analysis import ResilienceAnalysis
+from app.models.resilience_score import ResilienceScore
+from app.models.simulation_run import SimulationRun
+from app.services.ai_analysis_service import AIAnalysisService
 from app.services.persistence_service import PersistenceService
 from app.services.resilience_orchestrator import (
     get_resilience_analysis,
-    run_chaos_experiment,
+    run_chaos_experiment as _run_chaos_experiment,
     suggest_next_experiment as _suggest_next_experiment,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "get_resilience_analysis",
@@ -21,6 +32,68 @@ __all__ = [
     "run_chaos_experiment",
     "suggest_next_experiment",
 ]
+
+
+def run_chaos_experiment(system: dict, experiment: dict) -> dict:
+    """
+    Thin wrapper around resilience_orchestrator.run_chaos_experiment that
+    additionally persists the system and the resulting run, and computes an
+    AIInsight for it grounded in the same FaultLensContext pipeline — this
+    is what POST /api/experiments/run also does, so an experiment triggered
+    by an external Bob agent via MCP becomes real, retrievable history:
+    later faultlens_get_context / chaos_suggest_next_experiment calls (and
+    FaultLens's own UI History) will see it, exactly like an experiment run
+    from the FaultLens UI.
+
+    Persistence/AI-analysis failures never discard the underlying chaos
+    experiment result — the same "don't let a secondary concern break the
+    experiment" guarantee POST /api/experiments/run makes.
+    """
+
+    result = _run_chaos_experiment(system=system, experiment=experiment)
+
+    try:
+        request = ExperimentRequest(system=system, experiment=experiment)
+        run = SimulationRun(**result["run"])
+        analysis = ResilienceAnalysis(**result["analysis"])
+        score = ResilienceScore(**result["resilience_score"])
+
+        persistence = PersistenceService()
+        history = persistence.list_experiments(request.system.id)
+
+        context = build_context(
+            system=request.system,
+            experiment=request.experiment,
+            run=run,
+            analysis=analysis,
+            resilience_score=score,
+            history=history,
+        )
+
+        ai_insight = AIAnalysisService().analyze(
+            analysis,
+            experiment_type=request.experiment.type,
+            target_node=request.experiment.target_node,
+            context=context,
+        )
+
+        run_data = ExperimentRunData(
+            run=run,
+            events=result["events"],
+            comparisons=result["comparisons"],
+            resilience_score=score,
+            analysis=analysis,
+            ai_analysis=ai_insight,
+        )
+
+        persistence.save_system(request.system)
+        persistence.save_experiment(request.system.id, run_data)
+
+        result["ai_analysis"] = ai_insight.model_dump(mode="json")
+    except Exception:
+        logger.exception("Failed to persist MCP-triggered experiment or compute its AIInsight")
+
+    return result
 
 
 def suggest_next_experiment(
