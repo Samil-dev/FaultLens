@@ -3,6 +3,7 @@ import { useStore } from '../../store/experimentStore'
 import { runExperiment } from '../../services/api'
 import type { ExperimentType } from '../../types/api'
 import { EXPERIMENT_TYPES } from '../../constants/experimentTypes'
+import { computeSettledNodeStates } from '../../utils/nodeStates'
 
 export function ExperimentModal() {
   const {
@@ -14,6 +15,7 @@ export function ExperimentModal() {
     setLastResult,
     pushHistory,
     setNodeState,
+    setNodeStatesBulk,
     resetNodeStates,
   } = useStore()
 
@@ -55,13 +57,17 @@ export function ExperimentModal() {
     setError(null)
     setPhase('running')
 
+    // Captured so a stale response can't overwrite a *different* system's
+    // state if the user switches systems (or imports a new one) while this
+    // request is still in flight — see the guard right after the await.
+    const systemAtStart = system
     const experimentId = `exp-${Date.now()}`
 
     const request = {
-      system,
+      system: systemAtStart,
       experiment: {
         id: experimentId,
-        system_id: system.id,
+        system_id: systemAtStart.id,
         target_node: pendingExperiment.target_node,
         type: expType,
         duration_seconds: duration,
@@ -70,6 +76,14 @@ export function ExperimentModal() {
 
     try {
       const response = await runExperiment(request)
+
+      if (useStore.getState().system.id !== systemAtStart.id) {
+        // The active system changed mid-request. Discard this result rather
+        // than applying it to whatever system is active now — the user
+        // already navigated away, so silently dropping it (not surfacing an
+        // error) is the correct, expected behavior.
+        return
+      }
 
       if (!response.success || !response.data) {
         throw new Error(response.error?.message ?? 'Experiment failed')
@@ -105,15 +119,12 @@ export function ExperimentModal() {
 
       await delay(800)
 
-      // Final state — recovered nodes become healthy (except permanently failed)
-      for (const recovery of data.run.recoveries) {
-        if (recovery.recovery_status === 'recovered') {
-          setNodeState(recovery.node_id, { status: 'healthy', animating: false, highlighted: false })
-        }
-      }
+      if (useStore.getState().system.id !== systemAtStart.id) return
 
-      // Target node stays at its final status
-      setNodeState(pendingExperiment.target_node, { status: targetFinalStatus, animating: false, highlighted: true })
+      // Settle on the exact same final frame History restores via
+      // viewResult() — one shared computation, so a freshly-completed run
+      // and a historical replay of it always look identical.
+      setNodeStatesBulk(computeSettledNodeStates(systemAtStart, data))
 
       // Store results
       setLastResult(data)
@@ -122,6 +133,7 @@ export function ExperimentModal() {
       setPendingExperiment(null)
 
     } catch (err) {
+      if (useStore.getState().system.id !== systemAtStart.id) return
       const msg = err instanceof Error ? err.message : 'Unknown error'
       setError(msg)
       setPhase('configuring')

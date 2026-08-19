@@ -12,6 +12,7 @@ export function Header() {
   // Breadcrumb reflecting where the user is in the experiment lifecycle:
   // System -> selected node -> scenario -> lifecycle stage.
   const selectedNode = selectedNodeId ? system.nodes.find((n) => n.id === selectedNodeId) : null
+  const experimentInFlight = phase === 'running' || phase === 'propagating'
   const breadcrumb: string[] = [system.name]
   if (selectedNode) breadcrumb.push(selectedNode.name)
   if (phase === 'configuring') breadcrumb.push('Configure experiment')
@@ -77,13 +78,16 @@ export function Header() {
               key={i}
               type="button"
               onClick={() => setSystemSwitcherOpen(true)}
-              title="Switch active system"
+              disabled={experimentInFlight}
+              title={experimentInFlight ? 'Wait for the running experiment to finish before switching systems' : 'Switch active system'}
               aria-label={`Active system: ${part}. Click to switch systems.`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 4px',
+                background: 'transparent', border: 'none',
+                cursor: experimentInFlight ? 'not-allowed' : 'pointer', padding: '2px 4px',
                 marginLeft: -4, borderRadius: 'var(--radius-sm)',
                 fontSize: 12,
+                opacity: experimentInFlight ? 0.5 : 1,
                 color: breadcrumb.length === 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontWeight: breadcrumb.length === 1 ? 600 : 400,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220,
@@ -110,8 +114,9 @@ export function Header() {
           className="btn btn-ghost btn-sm"
           style={{ marginLeft: 10, flexShrink: 0 }}
           onClick={() => setSystemImportOpen(true)}
+          disabled={experimentInFlight}
           aria-label="Import a system architecture"
-          title="Import a system architecture"
+          title={experimentInFlight ? 'Wait for the running experiment to finish before importing a system' : 'Import a system architecture'}
         >
           ⬡ Import System
         </button>
