@@ -3,6 +3,7 @@ import { useStore } from '../../store/experimentStore'
 import { StatusBadge } from '../ui/StatusBadge'
 import { ComparisonPanel } from '../panels/ComparisonPanel'
 import { MetricsPanel } from '../panels/MetricsPanel'
+import { AIInsightStatusNotice } from '../panels/AIInsightStatusNotice'
 import type { NodeStatus } from '../../types/api'
 import { EXPERIMENT_TYPE_LABEL, formatRelativeTime, formatTimestamp } from '../../utils/format'
 import { estimateCriticality, getDirectDependencies, getDirectDependents, getPotentialAffectedNodes } from '../../utils/graph'
@@ -425,12 +426,18 @@ export function LeftSidebar() {
 
               <div className="panel-section">
                 <p className="panel-section-title" style={{ color: 'var(--accent)' }}>AI Interpretation</p>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 8 }}>
-                  {lastResult.ai_analysis.root_cause}
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-                  {lastResult.ai_analysis.risk_interpretation}
-                </p>
+                {lastResult.ai_analysis.status === 'available' && lastResult.ai_analysis.analysis ? (
+                  <>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 8 }}>
+                      {lastResult.ai_analysis.analysis.root_cause}
+                    </p>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                      {lastResult.ai_analysis.analysis.risk_interpretation}
+                    </p>
+                  </>
+                ) : (
+                  <AIInsightStatusNotice insight={lastResult.ai_analysis} />
+                )}
               </div>
 
               <div className="panel-section">
@@ -443,26 +450,28 @@ export function LeftSidebar() {
                 ))}
               </div>
 
-              <div className="panel-section">
-                <p className="panel-section-title">Confidence</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div className="progress-bar" style={{ flex: 1 }}>
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${lastResult.ai_analysis.confidence * 100}%`, background: 'var(--accent)' }}
-                    />
+              {lastResult.ai_analysis.status === 'available' && lastResult.ai_analysis.analysis && (
+                <div className="panel-section">
+                  <p className="panel-section-title">Confidence</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="progress-bar" style={{ flex: 1 }}>
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${lastResult.ai_analysis.analysis.confidence * 100}%`, background: 'var(--accent)' }}
+                      />
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {(lastResult.ai_analysis.analysis.confidence * 100).toFixed(0)}%
+                    </span>
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {(lastResult.ai_analysis.confidence * 100).toFixed(0)}%
-                  </span>
+                  <div className="stat-row" style={{ marginTop: 6 }}>
+                    <span className="stat-label">Provider</span>
+                    <span className="stat-value" style={{ textTransform: 'uppercase', fontSize: 10 }}>
+                      {lastResult.ai_analysis.provider}
+                    </span>
+                  </div>
                 </div>
-                <div className="stat-row" style={{ marginTop: 6 }}>
-                  <span className="stat-label">Provider</span>
-                  <span className="stat-value" style={{ textTransform: 'uppercase', fontSize: 10 }}>
-                    {lastResult.ai_analysis.provider}
-                  </span>
-                </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="empty-state">

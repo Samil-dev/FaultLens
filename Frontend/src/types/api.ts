@@ -140,6 +140,20 @@ export interface AIAnalysis {
   provider: string
 }
 
+// An AI provider attempt is never assumed to succeed — `status` says
+// exactly what happened, and `analysis` is only ever populated when it's
+// 'available'. Every other status carries a human-readable `message`
+// instead, which must be rendered as an honest status explanation, never
+// as if it were a real AI-generated response.
+export type AIInsightStatus = 'available' | 'not_configured' | 'unavailable' | 'error'
+
+export interface AIInsight {
+  status: AIInsightStatus
+  provider: string
+  analysis: AIAnalysis | null
+  message: string | null
+}
+
 // ─── API response shape ───────────────────────────────────────────────────────
 
 export interface ExperimentRunData {
@@ -148,7 +162,7 @@ export interface ExperimentRunData {
   comparisons: MetricComparison[]
   resilience_score: ResilienceScore
   analysis: ResilienceAnalysis
-  ai_analysis: AIAnalysis
+  ai_analysis: AIInsight
 }
 
 // ─── Scenario comparison ──────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { useStore } from '../../store/experimentStore'
 import { StatusBadge } from '../ui/StatusBadge'
 import { ScoreRing } from '../ui/ScoreRing'
 import { NextExperimentSuggestion } from '../panels/NextExperimentSuggestion'
+import { AIInsightStatusNotice } from '../panels/AIInsightStatusNotice'
 import type { Recommendation } from '../../types/api'
 import { EXPERIMENT_TYPE_LABEL } from '../../utils/format'
 
@@ -268,41 +269,48 @@ export function RightPanel() {
               {ai_analysis.provider}
             </span>
           </p>
-          <div style={{
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 10,
-          }}>
-            <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-              {ai_analysis.summary}
-            </p>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <span className="label" style={{ display: 'block', marginBottom: 4 }}>Root cause</span>
-            <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              {ai_analysis.root_cause}
-            </p>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <span className="label" style={{ display: 'block', marginBottom: 4 }}>Risk interpretation</span>
-            <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              {ai_analysis.risk_interpretation}
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-            <span className="label">Confidence</span>
-            <div className="progress-bar" style={{ flex: 1 }}>
-              <div
-                className="progress-fill"
-                style={{
-                  width: `${ai_analysis.confidence * 100}%`,
-                  background: 'var(--accent)',
-                }}
-              />
-            </div>
-            <span style={{ fontSize: 10, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-              {(ai_analysis.confidence * 100).toFixed(0)}%
-            </span>
-          </div>
+
+          {ai_analysis.status !== 'available' || !ai_analysis.analysis ? (
+            <AIInsightStatusNotice insight={ai_analysis} />
+          ) : (
+            <>
+              <div style={{
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 10,
+              }}>
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  {ai_analysis.analysis.summary}
+                </p>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <span className="label" style={{ display: 'block', marginBottom: 4 }}>Root cause</span>
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {ai_analysis.analysis.root_cause}
+                </p>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <span className="label" style={{ display: 'block', marginBottom: 4 }}>Risk interpretation</span>
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {ai_analysis.analysis.risk_interpretation}
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <span className="label">Confidence</span>
+                <div className="progress-bar" style={{ flex: 1 }}>
+                  <div
+                    className="progress-fill"
+                    style={{
+                      width: `${ai_analysis.analysis.confidence * 100}%`,
+                      background: 'var(--accent)',
+                    }}
+                  />
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                  {(ai_analysis.analysis.confidence * 100).toFixed(0)}%
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Recommendations ── */}

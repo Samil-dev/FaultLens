@@ -214,7 +214,9 @@ export function ComparisonPanel() {
                 </span>
               </div>
               <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5, fontStyle: 'italic' }}>
-                {run.ai_analysis.summary.slice(0, 120)}…
+                {run.ai_analysis.status === 'available' && run.ai_analysis.analysis
+                  ? `${run.ai_analysis.analysis.summary.slice(0, 120)}…`
+                  : 'AI analysis unavailable for this run.'}
               </p>
             </div>
             )
