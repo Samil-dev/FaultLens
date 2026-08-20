@@ -1,3 +1,4 @@
+from app.chaos import duration_model
 from app.chaos.chaos_engine import ChaosEngine
 from app.models.experiment import Experiment
 from app.models.simulation_event import SimulationEvent
@@ -46,11 +47,14 @@ class ChaosService:
         for node_id in run.affected_nodes:
             status_overrides[node_id] = "degraded"
 
-        # Capture the system state after the experiment.
+        # Capture the system state after the experiment. How far the
+        # degraded/failed metrics move from their healthy baseline scales
+        # with how long the experiment ran — see app.chaos.duration_model.
         after_snapshot = metrics_service.create_snapshot(
             system,
             status_overrides,
             experiment_type=experiment.type,
+            severity_factor=duration_model.severity_factor(experiment.duration_seconds),
         )
 
         # Compare Before vs After.

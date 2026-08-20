@@ -21,6 +21,7 @@ class MetricsService:
         node_id: str,
         simulated_status: Literal["healthy", "degraded", "failed"] = "healthy",
         experiment_type: ExperimentType = "service_down",
+        severity_factor: float = 1.0,
     ) -> Metrics:
         """
         Returns simulated metrics for a specific node.
@@ -28,6 +29,48 @@ class MetricsService:
         The metrics depend on the simulated state of the node AND on the
         experiment type, so that latency_spike and resource_exhaustion can
         produce distinct metric signatures when a node is in a degraded state.
+
+        `severity_factor` (default 1.0 — reproduces the base profile
+        unchanged) scales how far a degraded/failed node's metrics move
+        away from the healthy baseline — see app.chaos.duration_model,
+        which derives it from how long the experiment ran. Healthy metrics
+        are never scaled; there's nothing to scale a baseline against.
+        """
+
+        base = self._base_node_metrics(system, node_id, simulated_status, experiment_type)
+
+        if simulated_status == "healthy" or severity_factor == 1.0:
+            return base
+
+        healthy = self._base_node_metrics(system, node_id, "healthy", experiment_type)
+        return self._scale_from_baseline(base, healthy, severity_factor)
+
+    def _scale_from_baseline(self, base: Metrics, healthy: Metrics, factor: float) -> Metrics:
+        return Metrics(
+            node_id=base.node_id,
+            cpu_usage=self._scale(healthy.cpu_usage, base.cpu_usage, factor, cap=100.0),
+            memory_usage=self._scale(healthy.memory_usage, base.memory_usage, factor, cap=100.0),
+            latency_ms=self._scale(healthy.latency_ms, base.latency_ms, factor),
+            error_rate=self._scale(healthy.error_rate, base.error_rate, factor, cap=100.0),
+        )
+
+    @staticmethod
+    def _scale(baseline: float, value: float, factor: float, cap: float | None = None) -> float:
+        scaled = baseline + (value - baseline) * factor
+        if cap is not None:
+            scaled = min(scaled, cap)
+        return round(max(0.0, scaled), 2)
+
+    def _base_node_metrics(
+        self,
+        system: System,
+        node_id: str,
+        simulated_status: Literal["healthy", "degraded", "failed"],
+        experiment_type: ExperimentType,
+    ) -> Metrics:
+        """
+        The fixed per-(status, experiment_type) profile get_node_metrics()
+        scales from — unchanged from before severity_factor existed.
         """
 
         # Verify that the requested node exists.
@@ -162,6 +205,7 @@ class MetricsService:
             Literal["healthy", "degraded", "failed"]
         ] | None = None,
         experiment_type: ExperimentType = "service_down",
+        severity_factor: float = 1.0,
     ) -> list[MetricSnapshot]:
         """
         Creates a metrics snapshot for every node in the system.
@@ -169,6 +213,7 @@ class MetricsService:
         status_overrides can be used to simulate node states.
         experiment_type is forwarded to get_node_metrics so that degraded
         nodes produce the correct metric signature for the given experiment.
+        severity_factor is forwarded unchanged — see get_node_metrics().
         """
 
         snapshots = []
@@ -188,6 +233,7 @@ class MetricsService:
                 node.id,
                 simulated_status,
                 experiment_type,
+                severity_factor,
             )
 
             snapshots.append(

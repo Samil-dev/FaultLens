@@ -189,6 +189,79 @@ class TestRecoveries:
         assert run.recoveries[0].recovery_time_seconds == 15.0
 
 
+# ── Duration has real, deterministic consequences ─────────────────────────────
+# db-main's reverse-graph shape (see module docstring): direct dependents
+# (depth 1) are auth/catalog/orders; gateway is depth 2 (it depends on all
+# three of those, not on db-main directly) — the one node in this system
+# whose presence in affected_nodes actually depends on propagation depth.
+
+class TestDurationAffectsPropagation:
+    def _experiment(self, system_id: str, duration: int) -> Experiment:
+        return Experiment(
+            id=f"exp-duration-{duration}",
+            system_id=system_id,
+            target_node="db-main",
+            type="service_down",
+            duration_seconds=duration,
+        )
+
+    def test_a_brief_experiment_is_contained_to_direct_dependents(self, demo_system):
+        run, _ = _run(demo_system, self._experiment(demo_system.id, 10))
+        assert set(run.affected_nodes) == {"auth", "catalog", "orders"}
+        assert "gateway" not in run.affected_nodes
+
+    def test_the_default_duration_cascades_fully_unchanged_from_before(self, demo_system):
+        """Locks in backward compatibility: 30s must reproduce exactly the
+        pre-existing unlimited-depth behavior every other test in this file
+        was written against."""
+        run, _ = _run(demo_system, self._experiment(demo_system.id, 30))
+        assert set(run.affected_nodes) == {"auth", "catalog", "orders", "gateway"}
+
+    def test_a_sustained_experiment_also_cascades_fully(self, demo_system):
+        run, _ = _run(demo_system, self._experiment(demo_system.id, 60))
+        assert set(run.affected_nodes) == {"auth", "catalog", "orders", "gateway"}
+
+    def test_10s_30s_and_60s_produce_three_different_results(self, demo_system):
+        """The exact scenario this feature exists for: three different
+        configured durations against the same target must not collapse
+        into the same outcome."""
+        run_10, _ = _run(demo_system, self._experiment(demo_system.id, 10))
+        run_30, _ = _run(demo_system, self._experiment(demo_system.id, 30))
+        run_60, _ = _run(demo_system, self._experiment(demo_system.id, 60))
+
+        # Different propagation footprint.
+        assert set(run_10.affected_nodes) != set(run_30.affected_nodes)
+
+        # Different recovery times for the target, strictly increasing.
+        target_10 = next(r.recovery_time_seconds for r in run_10.recoveries if r.node_id == "db-main")
+        target_30 = next(r.recovery_time_seconds for r in run_30.recoveries if r.node_id == "db-main")
+        target_60 = next(r.recovery_time_seconds for r in run_60.recoveries if r.node_id == "db-main")
+        assert target_10 < target_30 < target_60
+
+    def test_same_duration_is_reproducible(self, demo_system):
+        """Determinism: the same experiment parameters must always produce
+        the same result, run after run."""
+        run_a, _ = _run(demo_system, self._experiment(demo_system.id, 45))
+        run_b, _ = _run(demo_system, self._experiment(demo_system.id, 45))
+        assert run_a.affected_nodes == run_b.affected_nodes
+        assert [(r.node_id, r.recovery_status, r.recovery_time_seconds) for r in run_a.recoveries] == \
+               [(r.node_id, r.recovery_status, r.recovery_time_seconds) for r in run_b.recoveries]
+
+    def test_a_sustained_failure_can_leave_a_distant_node_unrecovered(self, demo_system):
+        """gateway is depth 2 from db-main — this is the real chaos-engine
+        path (not a hand-built test fixture) that finally makes a 'failed'
+        recovery reachable."""
+        run, _ = _run(demo_system, self._experiment(demo_system.id, 60))
+        gateway_recovery = next(r for r in run.recoveries if r.node_id == "gateway")
+        assert gateway_recovery.recovery_status == "failed"
+        assert gateway_recovery.recovery_time_seconds is None
+
+    def test_short_experiments_never_produce_a_failed_recovery(self, demo_system):
+        for duration in (10, 30):
+            run, _ = _run(demo_system, self._experiment(demo_system.id, duration))
+            assert all(r.recovery_status == "recovered" for r in run.recoveries)
+
+
 # ── Validation errors ─────────────────────────────────────────────────────────
 
 class TestValidation:

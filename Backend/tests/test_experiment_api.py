@@ -408,6 +408,74 @@ class TestRunExperimentEndpoint:
         assert "auth" in root_cause
 
 
+# ── Duration has real consequences, end to end through the real API ──────────
+
+class TestExperimentDurationEndToEnd:
+    def _payload(self, demo_system, duration: int) -> dict:
+        return {
+            "system": demo_system.model_dump(mode="json"),
+            "experiment": {
+                "id": f"exp-api-duration-{duration}",
+                "system_id": demo_system.id,
+                "target_node": "db-main",
+                "type": "service_down",
+                "duration_seconds": duration,
+            },
+        }
+
+    def test_10s_30s_and_60s_produce_different_real_results(self, test_client, demo_system):
+        """The full backend contract (not just the engine in isolation):
+        importing/running the same experiment at three different durations
+        through the real HTTP endpoint must produce three genuinely
+        different resilience outcomes."""
+        results = {}
+        for duration in (10, 30, 60):
+            body = test_client.post("/api/experiments/run", json=self._payload(demo_system, duration)).json()
+            assert body["success"] is True
+            results[duration] = body["data"]
+
+        affected_10 = set(results[10]["run"]["affected_nodes"])
+        affected_30 = set(results[30]["run"]["affected_nodes"])
+        assert affected_10 != affected_30, "10s and 30s must not cascade identically"
+
+        score_10 = results[10]["resilience_score"]["score"]
+        score_30 = results[30]["resilience_score"]["score"]
+        score_60 = results[60]["resilience_score"]["score"]
+        assert len({score_10, score_30, score_60}) == 3, "all three durations must produce distinct resilience scores"
+
+    def test_30s_matches_the_platform_default_baseline(self, test_client, demo_system):
+        """30s is FaultLens's own default experiment duration (see
+        ExperimentModal.tsx) — it must keep reproducing exactly the
+        long-standing fixed values every other test in this suite assumes."""
+        body = test_client.post("/api/experiments/run", json=self._payload(demo_system, 30)).json()
+        target_recovery = next(
+            r for r in body["data"]["run"]["recoveries"] if r["node_id"] == "db-main"
+        )
+        assert target_recovery["recovery_time_seconds"] == 15.0
+
+    def test_a_sustained_experiment_can_produce_a_failed_recovery_and_critical_risk(
+        self, test_client, demo_system
+    ):
+        body = test_client.post("/api/experiments/run", json=self._payload(demo_system, 60)).json()
+        data = body["data"]
+        assert data["analysis"]["recovery"]["failed_recoveries"] != []
+        assert data["analysis"]["risk"]["level"] in {"high", "critical"}
+
+    def test_repeated_calls_with_the_same_duration_are_reproducible(self, test_client, demo_system):
+        payload = self._payload(demo_system, 45)
+        payload["experiment"]["id"] = "exp-api-repro-a"
+        body_a = test_client.post("/api/experiments/run", json=payload).json()["data"]
+        payload["experiment"]["id"] = "exp-api-repro-b"
+        body_b = test_client.post("/api/experiments/run", json=payload).json()["data"]
+
+        assert body_a["run"]["affected_nodes"] == body_b["run"]["affected_nodes"]
+        assert body_a["resilience_score"]["score"] == body_b["resilience_score"]["score"]
+        assert (
+            [(r["node_id"], r["recovery_status"], r["recovery_time_seconds"]) for r in body_a["run"]["recoveries"]]
+            == [(r["node_id"], r["recovery_status"], r["recovery_time_seconds"]) for r in body_b["run"]["recoveries"]]
+        )
+
+
 # ── AI provider failure isolation ─────────────────────────────────────────────
 # A provider that can't produce an analysis (missing config, or an outright
 # failure) must never take the rest of the experiment result down with it.

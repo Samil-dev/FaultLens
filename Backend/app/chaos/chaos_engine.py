@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from app.chaos import duration_model
 from app.graph.dependency_graph import DependencyGraph
 from app.models.experiment import Experiment
 from app.models.recovery import Recovery
@@ -19,6 +20,14 @@ class ChaosEngine:
       - latency_spike:        target → degraded, affected → degraded
       - resource_exhaustion:  target → degraded, affected → degraded
       - traffic_spike:        target → degraded, affected → degraded
+
+    `experiment.duration_seconds` has real, deterministic consequences (see
+    app.chaos.duration_model): how far the failure is allowed to cascade,
+    how long recovery takes, and whether a node far enough from the target
+    fails to recover within the experiment window at all. Every rule is
+    anchored at duration_model.DEFAULT_DURATION (30s), so a 30-second
+    experiment reproduces exactly the fixed outcome this engine always
+    produced before duration became a real parameter.
     """
 
     def __init__(self, system: System):
@@ -66,6 +75,68 @@ class ChaosEngine:
             f"Experiment type '{experiment.type}' is not supported"
         )
 
+    # ── Shared duration-aware helpers ───────────────────────────────────────────
+
+    def _affected_nodes(self, target_node: str, duration_seconds: int) -> list[str]:
+        """
+        Real, topology-driven propagation, capped by how long the failure
+        ran — a brief failure is contained to direct dependents; a
+        sustained one cascades through the full dependency chain.
+        """
+        depth_limit = duration_model.propagation_depth(duration_seconds)
+        return self.graph.get_affected_nodes(target_node, max_depth=depth_limit)
+
+    def _build_recoveries(
+        self,
+        target_node: str,
+        affected_nodes: list[str],
+        duration_seconds: int,
+        target_base_seconds: float,
+        affected_base_seconds: float,
+        affected_step_seconds: float,
+    ) -> list[Recovery]:
+        """
+        Builds the recovery record for the target plus every affected node.
+
+        Recovery time scales with how long the failure ran (recovering from
+        a brief outage is faster than from a sustained one). A node more
+        than one hop from the target can fail to recover outright once the
+        failure has run long enough — deterministic and topology-aware, see
+        duration_model.recovery_fails_at_depth().
+        """
+        factor = duration_model.recovery_time_factor(duration_seconds)
+        node_depths = self.graph.get_affected_node_depths(target_node)
+
+        recoveries = [
+            Recovery(
+                node_id=target_node,
+                recovery_status="recovered",
+                recovery_time_seconds=round(target_base_seconds * factor, 2),
+            )
+        ]
+
+        for index, node_id in enumerate(affected_nodes):
+            depth = node_depths.get(node_id, 1)
+            if duration_model.recovery_fails_at_depth(duration_seconds, depth):
+                recoveries.append(
+                    Recovery(
+                        node_id=node_id,
+                        recovery_status="failed",
+                        recovery_time_seconds=None,
+                    )
+                )
+            else:
+                base = affected_base_seconds + (index * affected_step_seconds)
+                recoveries.append(
+                    Recovery(
+                        node_id=node_id,
+                        recovery_status="recovered",
+                        recovery_time_seconds=round(base * factor, 2),
+                    )
+                )
+
+        return recoveries
+
     # ── Private handlers ──────────────────────────────────────────────────────
 
     def _run_service_down(
@@ -78,7 +149,7 @@ class ChaosEngine:
         """
         now = datetime.now(timezone.utc)
 
-        affected_nodes = self.graph.get_affected_nodes(experiment.target_node)
+        affected_nodes = self._affected_nodes(experiment.target_node, experiment.duration_seconds)
 
         events: list[SimulationEvent] = []
 
@@ -107,22 +178,14 @@ class ChaosEngine:
                 )
             )
 
-        recoveries: list[Recovery] = [
-            Recovery(
-                node_id=experiment.target_node,
-                recovery_status="recovered",
-                recovery_time_seconds=15.0,
-            )
-        ]
-
-        for index, node_id in enumerate(affected_nodes):
-            recoveries.append(
-                Recovery(
-                    node_id=node_id,
-                    recovery_status="recovered",
-                    recovery_time_seconds=8.0 + (index * 0.2),
-                )
-            )
+        recoveries = self._build_recoveries(
+            experiment.target_node,
+            affected_nodes,
+            experiment.duration_seconds,
+            target_base_seconds=15.0,
+            affected_base_seconds=8.0,
+            affected_step_seconds=0.2,
+        )
 
         run = SimulationRun(
             id=f"run-{experiment.id}",
@@ -148,7 +211,7 @@ class ChaosEngine:
         """
         now = datetime.now(timezone.utc)
 
-        affected_nodes = self.graph.get_affected_nodes(experiment.target_node)
+        affected_nodes = self._affected_nodes(experiment.target_node, experiment.duration_seconds)
 
         events: list[SimulationEvent] = []
 
@@ -177,22 +240,14 @@ class ChaosEngine:
                 )
             )
 
-        recoveries: list[Recovery] = [
-            Recovery(
-                node_id=experiment.target_node,
-                recovery_status="recovered",
-                recovery_time_seconds=8.0,
-            )
-        ]
-
-        for index, node_id in enumerate(affected_nodes):
-            recoveries.append(
-                Recovery(
-                    node_id=node_id,
-                    recovery_status="recovered",
-                    recovery_time_seconds=5.0 + (index * 0.2),
-                )
-            )
+        recoveries = self._build_recoveries(
+            experiment.target_node,
+            affected_nodes,
+            experiment.duration_seconds,
+            target_base_seconds=8.0,
+            affected_base_seconds=5.0,
+            affected_step_seconds=0.2,
+        )
 
         run = SimulationRun(
             id=f"run-{experiment.id}",
@@ -219,7 +274,7 @@ class ChaosEngine:
         """
         now = datetime.now(timezone.utc)
 
-        affected_nodes = self.graph.get_affected_nodes(experiment.target_node)
+        affected_nodes = self._affected_nodes(experiment.target_node, experiment.duration_seconds)
 
         events: list[SimulationEvent] = []
 
@@ -248,22 +303,14 @@ class ChaosEngine:
                 )
             )
 
-        recoveries: list[Recovery] = [
-            Recovery(
-                node_id=experiment.target_node,
-                recovery_status="recovered",
-                recovery_time_seconds=10.0,
-            )
-        ]
-
-        for index, node_id in enumerate(affected_nodes):
-            recoveries.append(
-                Recovery(
-                    node_id=node_id,
-                    recovery_status="recovered",
-                    recovery_time_seconds=7.0 + (index * 0.2),
-                )
-            )
+        recoveries = self._build_recoveries(
+            experiment.target_node,
+            affected_nodes,
+            experiment.duration_seconds,
+            target_base_seconds=10.0,
+            affected_base_seconds=7.0,
+            affected_step_seconds=0.2,
+        )
 
         run = SimulationRun(
             id=f"run-{experiment.id}",
@@ -289,7 +336,7 @@ class ChaosEngine:
         """
         now = datetime.now(timezone.utc)
 
-        affected_nodes = self.graph.get_affected_nodes(experiment.target_node)
+        affected_nodes = self._affected_nodes(experiment.target_node, experiment.duration_seconds)
 
         events: list[SimulationEvent] = []
 
@@ -318,22 +365,14 @@ class ChaosEngine:
                 )
             )
 
-        recoveries: list[Recovery] = [
-            Recovery(
-                node_id=experiment.target_node,
-                recovery_status="recovered",
-                recovery_time_seconds=12.0,
-            )
-        ]
-
-        for index, node_id in enumerate(affected_nodes):
-            recoveries.append(
-                Recovery(
-                    node_id=node_id,
-                    recovery_status="recovered",
-                    recovery_time_seconds=6.0 + (index * 0.2),
-                )
-            )
+        recoveries = self._build_recoveries(
+            experiment.target_node,
+            affected_nodes,
+            experiment.duration_seconds,
+            target_base_seconds=12.0,
+            affected_base_seconds=6.0,
+            affected_step_seconds=0.2,
+        )
 
         run = SimulationRun(
             id=f"run-{experiment.id}",
