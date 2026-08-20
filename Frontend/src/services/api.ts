@@ -107,12 +107,20 @@ export function compareExperiments(request: ScenarioComparisonRequest): Promise<
  * POST /api/experiments/suggest-next — suggest a logical follow-up experiment
  * for a completed analysis. `lastTargetNode` (the node the analysis's own
  * experiment already targeted) lets the backend avoid immediately
- * re-suggesting that same node when a real alternative exists.
+ * re-suggesting that same node when a real alternative exists. `systemId`
+ * makes the suggestion history-aware — the backend fetches this system's
+ * real persisted experiment history and uses it to prefer never-tested
+ * nodes and vary the suggested experiment type, instead of only knowing
+ * about the single analysis in this request.
  */
 export function suggestNextExperiment(
   analysis: ResilienceAnalysis,
   lastTargetNode?: string,
+  systemId?: string,
 ): Promise<NextExperimentSuggestion> {
-  const query = lastTargetNode ? `?last_target_node=${encodeURIComponent(lastTargetNode)}` : ''
+  const params = new URLSearchParams()
+  if (lastTargetNode) params.set('last_target_node', lastTargetNode)
+  if (systemId) params.set('system_id', systemId)
+  const query = params.toString() ? `?${params.toString()}` : ''
   return post<ResilienceAnalysis, NextExperimentSuggestion>(`/experiments/suggest-next${query}`, analysis)
 }

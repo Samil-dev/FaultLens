@@ -63,6 +63,11 @@ export interface SimulationRun {
   experiment_id: string
   type: ExperimentType
   target_node: string
+  // Configured duration, in seconds, that produced this run — real,
+  // deterministic input to propagation depth, recovery time, and metric
+  // severity (see Backend/app/chaos/duration_model.py). Null only for
+  // runs persisted before this field existed.
+  duration_seconds: number | null
   status: SimulationStatus
   started_at: string | null
   finished_at: string | null

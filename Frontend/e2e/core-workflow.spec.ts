@@ -56,6 +56,7 @@ test.describe('FaultLens — Core Workflow (import → resilience analysis → h
   test('the full 16-step chain uses real, connected data at every stage', async ({ page }) => {
     const consoleErrors: string[] = []
     const failedRequests: string[] = []
+    const suggestNextRequestUrls: string[] = []
     page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()) })
     page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${err.message}`))
     page.on('requestfailed', (req) => failedRequests.push(`${req.method()} ${req.url()} — ${req.failure()?.errorText}`))
@@ -63,6 +64,12 @@ test.describe('FaultLens — Core Workflow (import → resilience analysis → h
       if (res.url().includes('/api/') && res.status() >= 500) {
         failedRequests.push(`${res.status()} ${res.url()}`)
       }
+    })
+    // Real network observation (not interception/faking) — proves the
+    // suggestion request actually carries system_id, not just that the UI
+    // renders something.
+    page.on('request', (req) => {
+      if (req.url().includes('/api/experiments/suggest-next')) suggestNextRequestUrls.push(req.url())
     })
 
     // ── 1. Open the app ──────────────────────────────────────────────────
@@ -156,6 +163,14 @@ test.describe('FaultLens — Core Workflow (import → resilience analysis → h
         .getByText(/MCP checking…|MCP unavailable|Bob not connected|MCP active|MCP available/)
         .innerText()
       expect(['MCP checking…', 'MCP unavailable', 'Bob not connected', 'MCP active', 'MCP available']).toContain(statusText)
+    })
+
+    // ── 10c. The suggestion request is genuinely history-aware ──────────
+    await test.step('10c — the suggest-next request carries system_id, not just the analysis', async () => {
+      await expect.poll(() => suggestNextRequestUrls.length, { timeout: 10_000 }).toBeGreaterThan(0)
+      const url = suggestNextRequestUrls[suggestNextRequestUrls.length - 1]
+      expect(url).toContain('system_id=')
+      expect(url).toContain(encodeURIComponent(system.id))
     })
 
     // ── 11. Next Experiment Suggestion selects its target node for real ──

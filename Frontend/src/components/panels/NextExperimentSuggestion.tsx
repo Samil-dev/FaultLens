@@ -24,7 +24,7 @@ export function NextExperimentSuggestion({
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
-    suggestNextExperiment(analysis, lastTargetNode)
+    suggestNextExperiment(analysis, lastTargetNode, system.id)
       .then((suggestion) => { if (!cancelled) setState({ status: 'ready', suggestion }) })
       .catch((err) => {
         if (!cancelled) setState({
@@ -33,7 +33,7 @@ export function NextExperimentSuggestion({
         })
       })
     return () => { cancelled = true }
-  }, [analysis, lastTargetNode])
+  }, [analysis, lastTargetNode, system.id])
 
   function runSuggested(exp: NonNullable<Suggestion['suggested_experiment']>) {
     // Keep "selected node" and "the node this experiment targets" as one
