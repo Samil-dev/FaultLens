@@ -40,6 +40,7 @@ class Experiment(BaseModel):
     # Duración del experimento en segundos.
     duration_seconds: int = Field(
         ...,
-        ge=0,
-        description="Duration of the experiment in seconds"
+        gt=0,
+        le=300,
+        description="Duration of the experiment in seconds (1-300)"
     )

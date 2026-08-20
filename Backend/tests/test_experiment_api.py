@@ -221,6 +221,21 @@ class TestRunExperimentEndpoint:
         response = test_client.post("/api/experiments/run", json=payload)
         assert response.status_code == 422
 
+    @pytest.mark.parametrize("bad_duration", [0, -5, 301, 100_000])
+    def test_invalid_duration_returns_422(self, test_client, demo_system, bad_duration):
+        payload = {
+            "system": demo_system.model_dump(mode="json"),
+            "experiment": {
+                "id": f"exp-bad-duration-{bad_duration}",
+                "system_id": demo_system.id,
+                "target_node": "gateway",
+                "type": "service_down",
+                "duration_seconds": bad_duration,
+            },
+        }
+        response = test_client.post("/api/experiments/run", json=payload)
+        assert response.status_code == 422
+
     def test_unknown_target_node_returns_400(self, test_client, demo_system):
         """
         An unknown target_node passes Pydantic validation (it's just a string)
