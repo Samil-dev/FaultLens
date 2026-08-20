@@ -68,6 +68,7 @@ def build_context(
     if run is not None:
         context.target_node = context.target_node or run.target_node
         context.experiment_type = context.experiment_type or run.type
+        context.duration_seconds = context.duration_seconds or run.duration_seconds
         context.run_id = run.id
         context.run_status = run.status
         context.affected_nodes = list(run.affected_nodes)

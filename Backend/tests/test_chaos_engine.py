@@ -60,6 +60,15 @@ class TestReturnShape:
         run, _ = _run(demo_system, service_down_db_main)
         assert run.id == f"run-{service_down_db_main.id}"
 
+    def test_run_records_the_configured_duration(self, demo_system, service_down_db_main):
+        """Regression test: duration_seconds used to influence the outcome
+        without ever being persisted anywhere retrievable afterward — a
+        SimulationRun (and therefore FaultLensContext) could never report
+        what duration actually produced it."""
+        run, _ = _run(demo_system, service_down_db_main)
+        assert run.duration_seconds == service_down_db_main.duration_seconds
+        assert run.duration_seconds == 30
+
 
 # ── Events ────────────────────────────────────────────────────────────────────
 

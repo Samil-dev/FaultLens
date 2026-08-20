@@ -35,6 +35,17 @@ class SimulationRun(BaseModel):
         description="Identifier of the node the experiment targeted"
     )
 
+    #Duracion configurada del experimento, en segundos.
+    duration_seconds: Optional[int] = Field(
+        default=None,
+        description=(
+            "Configured duration of the experiment in seconds, which "
+            "deterministically influenced propagation depth, recovery "
+            "time, and metric severity (see app.chaos.duration_model). "
+            "None only for runs persisted before this field existed."
+        )
+    )
+
     #Estado actual de la ejecucion.
     status: Literal[
         "pending",

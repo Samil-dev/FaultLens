@@ -92,6 +92,10 @@ class TestGetFaultLensContext:
         assert context["run_id"] == outcome["run"]["id"]
         assert context["propagation_path"][0] == "gw"
         assert context["analysis"]["risk"]["level"] in {"low", "moderate", "high", "critical"}
+        # get_faultlens_context never passes an `experiment=` object to
+        # build_context() — only `run=` — so duration_seconds must come
+        # from SimulationRun.duration_seconds, not be silently null.
+        assert context["duration_seconds"] == 30
 
 
 class TestRunChaosExperimentPersists:
