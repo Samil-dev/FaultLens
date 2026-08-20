@@ -47,12 +47,12 @@ test.describe('FaultLens — IBM Bob / MCP integration status', () => {
       // Whatever state it starts in (depends on this shared dev database's
       // prior activity), it must be one of the real, defined states — never
       // a bare "Connected" that this architecture can't actually promise.
-      const validStates = ['Checking…', 'MCP unavailable', 'Not connected', 'Active via MCP', 'MCP available']
-      const statusText = await page.locator('.app-header').getByText(/Checking…|MCP unavailable|Not connected|Active via MCP|MCP available/).innerText()
+      const validStates = ['MCP checking…', 'MCP unavailable', 'Bob not connected', 'MCP active', 'MCP available']
+      const statusText = await page.locator('.app-header').getByText(/MCP checking…|MCP unavailable|Bob not connected|MCP active|MCP available/).innerText()
       expect(validStates).toContain(statusText)
     })
 
-    await test.step('a real MCP client call updates the indicator to "Active via MCP"', async () => {
+    await test.step('a real MCP client call updates the indicator to "MCP active"', async () => {
       const systemId = `e2e-mcp-status-${runId}`
 
       // Spawns app.mcp.server as a real subprocess and talks to it over the
@@ -68,8 +68,8 @@ test.describe('FaultLens — IBM Bob / MCP integration status', () => {
       // The header polls GET /api/mcp/status every 10s — poll.toPass gives
       // it room to pick up the real activity we just generated.
       await expect(async () => {
-        const statusText = await page.locator('.app-header').getByText(/Active via MCP|MCP available/).innerText()
-        expect(statusText).toBe('Active via MCP')
+        const statusText = await page.locator('.app-header').getByText(/MCP active|MCP available/).innerText()
+        expect(statusText).toBe('MCP active')
       }).toPass({ timeout: 15_000, intervals: [1_000] })
     })
 

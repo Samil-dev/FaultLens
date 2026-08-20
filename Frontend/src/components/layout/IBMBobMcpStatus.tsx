@@ -70,10 +70,10 @@ export function IBMBobMcpStatus() {
     'var(--text-muted)'
 
   const label =
-    state.kind === 'loading' ? 'Checking…' :
+    state.kind === 'loading' ? 'MCP checking…' :
     state.kind === 'unavailable' ? 'MCP unavailable' :
-    state.kind === 'no_activity' ? 'Not connected' :
-    state.kind === 'active' ? 'Active via MCP' :
+    state.kind === 'no_activity' ? 'Bob not connected' :
+    state.kind === 'active' ? 'MCP active' :
     'MCP available'
 
   const detail =

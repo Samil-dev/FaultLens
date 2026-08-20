@@ -146,16 +146,16 @@ test.describe('FaultLens — Core Workflow (import → resilience analysis → h
 
     // ── 10b. The Golden Path exposes real Bob/MCP integration state ─────
     // (a lightweight touch-point here — the real MCP round-trip that can
-    // flip this to "Active via MCP" is exercised end-to-end in
+    // flip this to "MCP active" is exercised end-to-end in
     // e2e/mcp-integration.spec.ts; this only proves the indicator itself
     // is part of the same screen the rest of the workflow runs on).
     await test.step('10b — the header exposes an honest IBM Bob / MCP status, never a fake "Connected"', async () => {
       const bobIndicator = page.locator('.app-header').getByText('IBM BOB', { exact: true })
       await expect(bobIndicator).toBeVisible()
       const statusText = await page.locator('.app-header')
-        .getByText(/Checking…|MCP unavailable|Not connected|Active via MCP|MCP available/)
+        .getByText(/MCP checking…|MCP unavailable|Bob not connected|MCP active|MCP available/)
         .innerText()
-      expect(['Checking…', 'MCP unavailable', 'Not connected', 'Active via MCP', 'MCP available']).toContain(statusText)
+      expect(['MCP checking…', 'MCP unavailable', 'Bob not connected', 'MCP active', 'MCP available']).toContain(statusText)
     })
 
     // ── 11. Next Experiment Suggestion selects its target node for real ──
