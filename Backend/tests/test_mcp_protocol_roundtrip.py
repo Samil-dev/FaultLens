@@ -51,6 +51,17 @@ async def _run_roundtrip(system_id: str, db_path: str) -> dict:
             tools_result = await session.list_tools()
             results["tool_names"] = sorted(t.name for t in tools_result.tools)
 
+            # "Before" call — proves the context genuinely changes because
+            # of the experiment, not that it was always populated: this
+            # system has never been persisted yet at this point.
+            before_result = await session.call_tool(
+                "faultlens_get_context", {"system_id": system_id}
+            )
+            before_content = before_result.content[0]
+            results["context_before"] = (
+                json.loads(before_content.text) if isinstance(before_content, types.TextContent) else None
+            )
+
             system = {
                 "id": system_id,
                 "name": "Protocol Round-Trip System",
@@ -115,6 +126,10 @@ def test_mcp_server_speaks_the_real_protocol_and_context_reflects_the_run():
         "chaos_suggest_next_experiment",
         "faultlens_get_context",
     ]
+
+    # Before the experiment, this system has never been persisted — a real,
+    # honest "not found" from the same session, not a placeholder.
+    assert "error" in results["context_before"]
 
     run_data = results["run_data"]
     assert run_data["run"]["status"] == "completed"
