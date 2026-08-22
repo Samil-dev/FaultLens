@@ -117,7 +117,7 @@ export function ImportSystemModal() {
         {stage === 'success' && imported ? (
           <>
             <div style={{
-              background: 'rgba(63,185,80,0.08)', border: '1px solid rgba(63,185,80,0.25)',
+              background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
               borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: 16,
             }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-healthy)', marginBottom: 8 }}>
@@ -195,7 +195,7 @@ export function ImportSystemModal() {
 
             {error && (
               <div style={{
-                background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.25)',
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
                 borderRadius: 'var(--radius-md)', padding: '8px 12px', marginBottom: 16,
                 fontSize: 11, color: 'var(--color-failed)',
               }}>

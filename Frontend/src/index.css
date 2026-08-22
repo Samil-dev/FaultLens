@@ -4,45 +4,50 @@
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
   /* backgrounds */
-  --bg-base:      #080c10;
-  --bg-surface:   #0d1117;
-  --bg-panel:     #0f1520;
-  --bg-elevated:  #141d2b;
-  --bg-overlay:   rgba(8, 12, 16, 0.88);
+  --bg-base:      #0A0A0F;
+  --bg-surface:   #11111A;
+  --bg-panel:     #171722;
+  --bg-elevated:  #1D1D2A;
+  --bg-overlay:   rgba(10, 10, 15, 0.88);
 
   /* borders */
-  --border:       #1e2d3d;
-  --border-bright:#2a3f55;
+  --border:       #2D2D3D;
+  --border-bright:#3D3D52;
 
   /* text */
-  --text-primary: #e6edf3;
-  --text-secondary:#8b949e;
-  --text-muted:   #484f58;
+  --text-primary: #F8FAFC;
+  --text-secondary:#CBD5E1;
+  --text-muted:   #94A3B8;
 
   /* status colors */
-  --color-healthy:   #3fb950;
-  --color-degraded:  #d29922;
-  --color-failed:    #f85149;
-  --color-recovering:#58a6ff;
-  --color-unknown:   #8b949e;
+  --color-healthy:   #22C55E;
+  --color-degraded:  #F59E0B;
+  --color-failed:    #EF4444;
+  --color-recovering:#38BDF8;
+  --color-unknown:   #94A3B8;
 
   /* accent */
-  --accent:       #388bfd;
-  --accent-dim:   rgba(56, 139, 253, 0.15);
-  --accent-glow:  rgba(56, 139, 253, 0.35);
+  --accent:       #00E5FF;
+  --accent-dim:   rgba(0, 229, 255, 0.15);
+  --accent-glow:  rgba(0, 229, 255, 0.25);
+
+  /* secondary accent */
+  --secondary:       #7C3AED;
+  --secondary-hover: #8B5CF6;
+  --secondary-glow:  rgba(124, 58, 237, 0.25);
 
   /* risk colors */
-  --risk-low:      #3fb950;
-  --risk-moderate: #d29922;
-  --risk-high:     #f0883e;
-  --risk-critical: #f85149;
+  --risk-low:      #22C55E;
+  --risk-moderate: #F59E0B;
+  --risk-high:     #F97316;
+  --risk-critical: #EF4444;
 
   /* rating */
-  --rating-excellent: #3fb950;
-  --rating-good:      #58a6ff;
-  --rating-moderate:  #d29922;
-  --rating-poor:      #f0883e;
-  --rating-critical:  #f85149;
+  --rating-excellent: #22C55E;
+  --rating-good:      #38BDF8;
+  --rating-moderate:  #F59E0B;
+  --rating-poor:      #F97316;
+  --rating-critical:  #EF4444;
 
   /* layout */
   --sidebar-width: 220px;
@@ -287,17 +292,17 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.badge-healthy  { background: rgba(63,185,80,0.12);  color: var(--color-healthy);   }
-.badge-degraded { background: rgba(210,153,34,0.12); color: var(--color-degraded);  }
-.badge-failed   { background: rgba(248,81,73,0.14);  color: var(--color-failed);    }
-.badge-recovering{ background: rgba(88,166,255,0.12);color: var(--color-recovering);}
-.badge-low      { background: rgba(63,185,80,0.12);  color: var(--risk-low);        }
-.badge-moderate { background: rgba(210,153,34,0.12); color: var(--risk-moderate);   }
-.badge-high     { background: rgba(240,136,62,0.12); color: var(--risk-high);       }
-.badge-critical { background: rgba(248,81,73,0.14);  color: var(--risk-critical);   }
-.badge-excellent{ background: rgba(63,185,80,0.12);  color: var(--rating-excellent);}
-.badge-good     { background: rgba(88,166,255,0.12); color: var(--rating-good);     }
-.badge-poor     { background: rgba(240,136,62,0.12); color: var(--rating-poor);     }
+.badge-healthy  { background: rgba(34,197,94,0.12);  color: var(--color-healthy);   }
+.badge-degraded { background: rgba(245,158,11,0.12); color: var(--color-degraded);  }
+.badge-failed   { background: rgba(239,68,68,0.14);  color: var(--color-failed);    }
+.badge-recovering{ background: rgba(56,189,248,0.12);color: var(--color-recovering);}
+.badge-low      { background: rgba(34,197,94,0.12);  color: var(--risk-low);        }
+.badge-moderate { background: rgba(245,158,11,0.12); color: var(--risk-moderate);   }
+.badge-high     { background: rgba(249,115,22,0.12); color: var(--risk-high);       }
+.badge-critical { background: rgba(239,68,68,0.14);  color: var(--risk-critical);   }
+.badge-excellent{ background: rgba(34,197,94,0.12);  color: var(--rating-excellent);}
+.badge-good     { background: rgba(56,189,248,0.12); color: var(--rating-good);     }
+.badge-poor     { background: rgba(249,115,22,0.12); color: var(--rating-poor);     }
 
 /* ── Stat row ────────────────────────────────────────────────────────────────── */
 .stat-row {
@@ -463,7 +468,7 @@ html, body, #root {
   font-style: italic;
 }
 
-.badge-unknown { background: rgba(139,148,158,0.12); color: var(--text-muted); }
+.badge-unknown { background: rgba(148,163,184,0.12); color: var(--text-muted); }
 
 /* ── Comparison winner highlight ──────────────────────────────────────────────── */
 .stat-winner {
