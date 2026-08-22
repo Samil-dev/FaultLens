@@ -86,7 +86,7 @@ export function SystemSwitcherModal() {
 
         {loadState === 'error' && (
           <div style={{
-            background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.25)',
+            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
             borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 16,
           }}>
             <p style={{ fontSize: 11, color: 'var(--color-failed)', marginBottom: 8 }}>
@@ -108,7 +108,7 @@ export function SystemSwitcherModal() {
 
         {switchError && (
           <div style={{
-            background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.25)',
+            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
             borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 12,
           }}>
             <p style={{ fontSize: 11, color: 'var(--color-failed)' }}>

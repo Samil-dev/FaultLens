@@ -83,7 +83,7 @@ export function ComparisonPanel() {
                   marginBottom: 4,
                   borderRadius: 'var(--radius-md)',
                   border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                  background: selected ? 'rgba(59,130,212,0.07)' : 'var(--bg-elevated)',
+                  background: selected ? 'rgba(0,229,255,0.07)' : 'var(--bg-elevated)',
                   cursor: 'pointer',
                   userSelect: 'none',
                 }}
@@ -151,7 +151,7 @@ export function ComparisonPanel() {
 
           {runs.length > 1 && bestScore !== mostSevere.resilience_score.score && (
             <div style={{
-              background: 'rgba(248,81,73,0.08)', border: '1px solid rgba(248,81,73,0.2)',
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
               borderRadius: 'var(--radius-md)', padding: '8px 10px', marginBottom: 10,
             }}>
               <p style={{ fontSize: 11, color: 'var(--color-failed)', lineHeight: 1.5 }}>

@@ -237,8 +237,8 @@ export function ExperimentModal() {
 
         {/* Warning */}
         <div style={{
-          background: 'rgba(210,153,34,0.08)',
-          border: '1px solid rgba(210,153,34,0.2)',
+          background: 'rgba(245,158,11,0.08)',
+          border: '1px solid rgba(245,158,11,0.2)',
           borderRadius: 'var(--radius-md)',
           padding: '8px 12px',
           marginBottom: 16,
@@ -252,8 +252,8 @@ export function ExperimentModal() {
         {/* Error */}
         {error && (
           <div style={{
-            background: 'rgba(248,81,73,0.1)',
-            border: '1px solid rgba(248,81,73,0.25)',
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.25)',
             borderRadius: 'var(--radius-md)',
             padding: '8px 12px',
             marginBottom: 16,

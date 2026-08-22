@@ -195,10 +195,10 @@ export function RightPanel() {
                   return (
                     <span key={id} style={{
                       fontSize: 10, padding: '2px 6px',
-                      background: 'rgba(248,81,73,0.1)',
+                      background: 'rgba(239,68,68,0.1)',
                       color: 'var(--color-failed)',
                       borderRadius: 4,
-                      border: '1px solid rgba(248,81,73,0.2)',
+                      border: '1px solid rgba(239,68,68,0.2)',
                     }}>
                       {n?.name ?? id}
                     </span>

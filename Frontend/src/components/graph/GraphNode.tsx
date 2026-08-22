@@ -15,10 +15,10 @@ interface Props {
 }
 
 const STATUS_COLOR: Record<NodeStatus, string> = {
-  healthy:    '#3fb950',
-  degraded:   '#d29922',
-  failed:     '#f85149',
-  recovering: '#58a6ff',
+  healthy:    '#22C55E',
+  degraded:   '#F59E0B',
+  failed:     '#EF4444',
+  recovering: '#38BDF8',
 }
 
 const NODE_TYPE_ICON: Record<string, string> = {
@@ -46,7 +46,7 @@ export function GraphNode({
   animating,
   onClick,
 }: Props) {
-  const color = STATUS_COLOR[status] ?? '#8b949e'
+  const color = STATUS_COLOR[status] ?? '#94A3B8'
   const icon = NODE_TYPE_ICON[nodeType] ?? '◆'
   const rx = x - NODE_W / 2
   const ry = y - NODE_H / 2

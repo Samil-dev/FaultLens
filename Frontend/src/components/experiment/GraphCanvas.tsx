@@ -59,7 +59,7 @@ export function GraphCanvas() {
           top: 12,
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(8,12,16,0.85)',
+          background: 'rgba(10,10,15,0.85)',
           border: '1px solid var(--border-bright)',
           borderRadius: 'var(--radius-md)',
           padding: '6px 14px',
